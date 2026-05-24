@@ -1,20 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import L from 'leaflet'
 import { useAutoRecord } from '../hooks/useAutoRecord'
 import { useGeolocation } from '../hooks/useGeolocation'
 import { useSession } from '../hooks/useSession'
 import { useSettings } from '../hooks/useSettings'
+import RouteMap from '../components/RouteMap'
 
-const MAP_TILE_SOURCES = [
-  {
-    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; OpenStreetMap contributors',
-  },
-  {
-    url: 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-  },
-]
+function sanitizePath(path) {
+  if (!Array.isArray(path)) {
+    return []
+  }
+
+  return path.filter((point) => typeof point?.lat === 'number' && typeof point?.lon === 'number')
+}
 
 const TRAFFIC_LEVELS = [
   { key: 'free', label: 'FREE', className: 'bg-emerald-600 hover:bg-emerald-500' },
@@ -103,38 +100,6 @@ function playBeep() {
   oscillator.stop(context.currentTime + 0.12)
 }
 
-function addTileLayerWithFallback(map) {
-  let sourceIndex = 0
-  let tileErrorCount = 0
-  let activeLayer = null
-
-  const mountLayer = () => {
-    const source = MAP_TILE_SOURCES[sourceIndex]
-    const nextLayer = L.tileLayer(source.url, {
-      maxZoom: 19,
-      attribution: source.attribution,
-    })
-
-    nextLayer.on('tileerror', () => {
-      tileErrorCount += 1
-      if (tileErrorCount < 4 || sourceIndex >= MAP_TILE_SOURCES.length - 1) {
-        return
-      }
-
-      map.removeLayer(nextLayer)
-      sourceIndex += 1
-      tileErrorCount = 0
-      mountLayer()
-    })
-
-    nextLayer.addTo(map)
-    activeLayer = nextLayer
-  }
-
-  mountLayer()
-  return () => activeLayer
-}
-
 export default function RecordingPage() {
   const { settings, loading } = useSettings()
   const [autoEnabled, setAutoEnabled] = useState(false)
@@ -147,6 +112,7 @@ export default function RecordingPage() {
   const { requestOnce, startWatching, stopWatching } = geolocation
   const manualExpiryBeepedRef = useRef(false)
   const pathBufferRef = useRef([])
+  const [livePathPoints, setLivePathPoints] = useState([])
   const [isMdUp, setIsMdUp] = useState(() => {
     if (typeof window === 'undefined') {
       return true
@@ -154,12 +120,6 @@ export default function RecordingPage() {
     return window.matchMedia('(min-width: 640px)').matches
   })
   const [togglingPause, setTogglingPause] = useState(false)
-  const mapContainerRef = useRef(null)
-  const leafletMapRef = useRef(null)
-  const leafletTileLayerRef = useRef(null)
-  const leafletPathRef = useRef(null)
-  const leafletMarkerRef = useRef(null)
-  const hasCenteredOnFixRef = useRef(false)
   const manualBeepEnabled = settings?.manualBeepEnabled ?? true
 
   const activeProviders = useMemo(
@@ -207,12 +167,17 @@ export default function RecordingPage() {
   useEffect(() => {
     if (!session.session) {
       pathBufferRef.current = []
-      return
+      const bump = setTimeout(() => {
+        setLivePathPoints([])
+      }, 0)
+      return () => clearTimeout(bump)
     }
 
-    pathBufferRef.current = Array.isArray(session.session.path)
-      ? [...session.session.path]
-      : []
+    pathBufferRef.current = sanitizePath(session.session.path)
+    const bump = setTimeout(() => {
+      setLivePathPoints([...pathBufferRef.current])
+    }, 0)
+    return () => clearTimeout(bump)
   }, [session.session])
 
   useEffect(() => {
@@ -225,167 +190,19 @@ export default function RecordingPage() {
         return
       }
 
-      pathBufferRef.current.push({
+      const point = {
         lat: geolocation.location.lat,
         lon: geolocation.location.lon,
         accuracy: geolocation.location.accuracy,
         timestamp: new Date().toISOString(),
         fixTimestamp: geolocation.location.timestamp,
-      })
-
-      const map = leafletMapRef.current
-      if (!map || !session.session) {
-        return
       }
 
-      const pathPoints = pathBufferRef.current
-        .filter((point) => typeof point?.lat === 'number' && typeof point?.lon === 'number')
-        .map((point) => [point.lat, point.lon])
-
-      if (pathPoints.length > 0) {
-        if (!leafletPathRef.current) {
-          leafletPathRef.current = L.polyline(pathPoints, {
-            color: '#22d3ee',
-            weight: 5,
-            opacity: 0.9,
-          }).addTo(map)
-        } else {
-          leafletPathRef.current.setLatLngs(pathPoints)
-        }
-      }
+      pathBufferRef.current.push(point)
+      setLivePathPoints((prev) => [...prev, point])
     }, 1000)
 
     return () => clearInterval(sampler)
-  }, [geolocation.location, session.session])
-
-  useEffect(() => {
-    if (!isMdUp) {
-      return undefined
-    }
-
-    if (!mapContainerRef.current || leafletMapRef.current) {
-      return undefined
-    }
-
-    const container = mapContainerRef.current
-    if (container._leaflet_id) {
-      delete container._leaflet_id
-    }
-
-    const map = L.map(container, {
-      zoomControl: true,
-    }).setView([47.4979, 19.0402], 14)
-
-    const getActiveLayer = addTileLayerWithFallback(map)
-
-    leafletMapRef.current = map
-    leafletTileLayerRef.current = getActiveLayer()
-
-    const resizeSoon = setTimeout(() => {
-      leafletMapRef.current?.invalidateSize()
-      leafletTileLayerRef.current?.redraw()
-    }, 50)
-    const resizeLater = setTimeout(() => {
-      leafletMapRef.current?.invalidateSize()
-      leafletTileLayerRef.current?.redraw()
-    }, 250)
-
-    return () => {
-      clearTimeout(resizeSoon)
-      clearTimeout(resizeLater)
-      if (leafletMapRef.current) {
-        leafletMapRef.current.remove()
-        leafletMapRef.current = null
-      }
-      leafletTileLayerRef.current = null
-      leafletPathRef.current = null
-      leafletMarkerRef.current = null
-      hasCenteredOnFixRef.current = false
-    }
-  }, [isMdUp])
-
-  useEffect(() => {
-    if (!isMdUp) {
-      return undefined
-    }
-
-    const map = leafletMapRef.current
-    if (!map) {
-      return undefined
-    }
-
-    const invalidate = () => {
-      map.invalidateSize()
-      leafletTileLayerRef.current?.redraw()
-    }
-    const rafId = requestAnimationFrame(invalidate)
-    window.addEventListener('resize', invalidate)
-
-    const container = mapContainerRef.current
-    const resizeObserver =
-      container && typeof ResizeObserver !== 'undefined'
-        ? new ResizeObserver(() => {
-            invalidate()
-          })
-        : null
-
-    if (resizeObserver && container) {
-      resizeObserver.observe(container)
-    }
-
-    return () => {
-      cancelAnimationFrame(rafId)
-      window.removeEventListener('resize', invalidate)
-      resizeObserver?.disconnect()
-    }
-  }, [isMdUp])
-
-  useEffect(() => {
-    const map = leafletMapRef.current
-    if (!map) {
-      return
-    }
-
-    if (geolocation.location) {
-      const currentLatLng = [geolocation.location.lat, geolocation.location.lon]
-
-      if (!leafletMarkerRef.current) {
-        leafletMarkerRef.current = L.circleMarker(currentLatLng, {
-          radius: 6,
-          color: '#0ea5e9',
-          fillColor: '#0ea5e9',
-          fillOpacity: 0.95,
-        }).addTo(map)
-      } else {
-        leafletMarkerRef.current.setLatLng(currentLatLng)
-      }
-
-      if (!hasCenteredOnFixRef.current) {
-        map.setView(currentLatLng, 16)
-        hasCenteredOnFixRef.current = true
-      }
-    }
-
-    const pathPoints = session.session
-      ? pathBufferRef.current
-          .filter((point) => typeof point?.lat === 'number' && typeof point?.lon === 'number')
-          .map((point) => [point.lat, point.lon])
-      : []
-
-    if (pathPoints.length > 0) {
-      if (!leafletPathRef.current) {
-        leafletPathRef.current = L.polyline(pathPoints, {
-          color: '#22d3ee',
-          weight: 5,
-          opacity: 0.9,
-        }).addTo(map)
-      } else {
-        leafletPathRef.current.setLatLngs(pathPoints)
-      }
-    } else if (leafletPathRef.current) {
-      map.removeLayer(leafletPathRef.current)
-      leafletPathRef.current = null
-    }
   }, [geolocation.location, session.session])
 
   useEffect(() => {
@@ -433,13 +250,15 @@ export default function RecordingPage() {
       pathBufferRef.current = []
 
       if (geolocation.location) {
-        pathBufferRef.current.push({
+        const point = {
           lat: geolocation.location.lat,
           lon: geolocation.location.lon,
           accuracy: geolocation.location.accuracy,
           timestamp: new Date().toISOString(),
           fixTimestamp: geolocation.location.timestamp,
-        })
+        }
+        pathBufferRef.current.push(point)
+        setLivePathPoints((prev) => [...prev, point])
       }
 
       setManualSecondsLeft(settings?.sampleIntervalSec || 30)
@@ -487,12 +306,7 @@ export default function RecordingPage() {
       setManualSecondsLeft(0)
       manualExpiryBeepedRef.current = false
       pathBufferRef.current = []
-
-      const map = leafletMapRef.current
-      if (map && leafletPathRef.current) {
-        map.removeLayer(leafletPathRef.current)
-        leafletPathRef.current = null
-      }
+      setLivePathPoints([])
     } finally {
       setStoppingSession(false)
     }
@@ -574,9 +388,14 @@ export default function RecordingPage() {
       <section className="grid min-h-0 gap-3 md:grid-cols-[2fr_1fr]">
         {isMdUp ? (
           <div className="min-h-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
-            <div
-              ref={mapContainerRef}
+            <RouteMap
               className="h-[40dvh] min-h-[260px] w-full sm:h-[42dvh] md:h-full md:min-h-[320px]"
+              points={livePathPoints}
+              currentLocation={geolocation.location}
+              followCurrent={sessionActive && !sessionPaused}
+              showCurrentMarker
+              fitRoute={false}
+              fitRouteKey={session.session?.id}
             />
           </div>
         ) : null}
