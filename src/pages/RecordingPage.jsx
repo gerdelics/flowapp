@@ -43,6 +43,34 @@ function TrafficCard({ title, iconUrl, value, onSelect }) {
   )
 }
 
+function MobileTrafficRow({ title, iconUrl, value, onSelect }) {
+  return (
+    <div className="rounded-lg border border-slate-700 bg-slate-900 p-2">
+      <div className="mb-2 flex items-center gap-2">
+        {iconUrl ? (
+          <img src={iconUrl} alt="" className="h-5 w-5 rounded bg-white object-contain p-0.5" />
+        ) : null}
+        <p className="truncate text-xs font-semibold text-slate-100">{title}</p>
+      </div>
+
+      <div className="grid grid-cols-3 gap-1.5">
+        {TRAFFIC_LEVELS.map((level) => (
+          <button
+            key={level.key}
+            type="button"
+            onClick={() => onSelect(level.key)}
+            className={`rounded px-1 py-2 text-[11px] font-bold transition ${level.className} ${
+              value === level.key ? 'ring-2 ring-white/90' : 'opacity-80'
+            }`}
+          >
+            {level.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function playBeep() {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext
   if (!AudioContextClass) {
@@ -549,24 +577,21 @@ export default function RecordingPage() {
       </section>
 
       <section className="min-h-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-950/50 p-2">
-        <div className="flex h-full gap-2 overflow-x-auto pb-1 md:hidden">
-          <div className="min-w-[180px] flex-1">
-            <TrafficCard
-              title="User Perception"
-              value={session.observerAssessment}
-              onSelect={session.setObserverAssessment}
-            />
-          </div>
+        <div className="grid grid-cols-1 gap-2 md:hidden sm:grid-cols-2">
+          <MobileTrafficRow
+            title="User Perception"
+            value={session.observerAssessment}
+            onSelect={session.setObserverAssessment}
+          />
 
           {activeProviders.map((provider) => (
-            <div key={provider.id} className="min-w-[180px] flex-1">
-              <TrafficCard
-                title={provider.name}
-                iconUrl={provider.iconUrl}
-                value={session.providerLevels[provider.name] || 'medium'}
-                onSelect={(level) => session.updateProviderLevel(provider.name, level)}
-              />
-            </div>
+            <MobileTrafficRow
+              key={provider.id}
+              title={provider.name}
+              iconUrl={provider.iconUrl}
+              value={session.providerLevels[provider.name] || 'medium'}
+              onSelect={(level) => session.updateProviderLevel(provider.name, level)}
+            />
           ))}
         </div>
 
