@@ -53,7 +53,6 @@ export default function RouteMap({
 
     const map = L.map(container, {
       zoomControl: true,
-      preferCanvas: true,
     }).setView(DEFAULT_CENTER, defaultZoom)
 
     L.tileLayer(TILE_URL, {
@@ -83,9 +82,11 @@ export default function RouteMap({
       window.removeEventListener('resize', invalidate)
       resizeObserver?.disconnect()
 
-      if (mapRef.current) {
-        mapRef.current.remove()
-        mapRef.current = null
+      const mountedMap = mapRef.current
+      mapRef.current = null
+
+      if (mountedMap) {
+        mountedMap.remove()
       }
 
       pathRef.current = null
@@ -98,7 +99,7 @@ export default function RouteMap({
 
   useEffect(() => {
     const map = mapRef.current
-    if (!map) {
+    if (!map || !map._loaded) {
       return
     }
 
@@ -166,7 +167,7 @@ export default function RouteMap({
 
   useEffect(() => {
     const map = mapRef.current
-    if (!map) {
+    if (!map || !map._loaded) {
       return
     }
 
