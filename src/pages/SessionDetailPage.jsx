@@ -18,6 +18,12 @@ import {
   buildSessionArchiveFilename,
   downloadSessionArchive,
 } from '../utils/sessionArchive'
+import {
+  formatAverageSpeedKmh,
+  formatDistanceKm,
+  getSessionAverageSpeedKmh,
+  getSessionPathDistanceKm,
+} from '../utils/sessionMetrics'
 import RouteMap from '../components/RouteMap'
 
 function mapProviderLevels(entry) {
@@ -26,6 +32,35 @@ function mapProviderLevels(entry) {
     map[provider.name] = provider.level
   })
   return map
+}
+
+const TRAFFIC_BADGES = {
+  free: {
+    label: 'FREEFLOW',
+    className: 'bg-emerald-600 text-white',
+  },
+  medium: {
+    label: 'MEDIUM',
+    className: 'bg-amber-500 text-slate-950',
+  },
+  heavy: {
+    label: 'HIGH',
+    className: 'bg-red-600 text-white',
+  },
+}
+
+function TrafficBadge({ level }) {
+  const badge = TRAFFIC_BADGES[level] || null
+
+  if (!badge) {
+    return <span className="text-slate-400">—</span>
+  }
+
+  return (
+    <span className={`inline-flex min-w-20 justify-center rounded-full px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${badge.className}`}>
+      {badge.label}
+    </span>
+  )
 }
 
 
@@ -37,6 +72,7 @@ export default function SessionDetailPage() {
   const [statusMessage, setStatusMessage] = useState('')
   const [showPath, setShowPath] = useState(true)
   const { settings } = useSettings()
+  const canSync = Boolean(settings?.azureEndpointUrl && settings?.azureApiKey)
 
   useEffect(() => {
     async function load() {
@@ -80,8 +116,8 @@ export default function SessionDetailPage() {
   }
 
   async function handleSync() {
-    if (!settings?.azureEndpointUrl) {
-      setStatusMessage('Add Azure endpoint in Settings before sync.')
+    if (!canSync) {
+      setStatusMessage('Add Cosmos DB endpoint and API key in Settings before sync.')
       return
     }
 
@@ -162,11 +198,11 @@ export default function SessionDetailPage() {
           </button>
           <button
             type="button"
-            disabled={syncing}
+            disabled={syncing || !canSync}
             onClick={handleSync}
             className="rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold disabled:opacity-50"
           >
-            {syncing ? 'Syncing…' : 'Sync to Azure'}
+            {syncing ? 'Syncing…' : canSync ? 'Sync to Azure' : 'Sync unavailable'}
           </button>
           <button
             type="button"
@@ -177,11 +213,11 @@ export default function SessionDetailPage() {
           </button>
           <button
             type="button"
-            disabled={syncing}
+            disabled={syncing || !canSync}
             onClick={handleRetryAndSyncNow}
             className="rounded-md bg-fuchsia-600 px-3 py-2 text-sm font-semibold disabled:opacity-50"
           >
-            {syncing ? 'Retry+Sync…' : 'Retry + Sync now'}
+            {syncing ? 'Retry+Sync…' : canSync ? 'Retry + Sync now' : 'Sync unavailable'}
           </button>
           <button
             type="button"
@@ -196,6 +232,20 @@ export default function SessionDetailPage() {
       <p className="mb-4 mt-1 text-sm text-slate-400">
         {new Date(session.startTime).toLocaleString()}
       </p>
+      <div className="mb-4 grid gap-2 rounded-xl border border-slate-700 bg-slate-900 p-3 text-sm sm:grid-cols-2">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-400">Distance</p>
+          <p className="mt-1 text-base font-semibold text-slate-100">
+            {formatDistanceKm(getSessionPathDistanceKm(session.path))}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-slate-400">Average speed</p>
+          <p className="mt-1 text-base font-semibold text-slate-100">
+            {formatAverageSpeedKmh(getSessionAverageSpeedKmh(session))}
+          </p>
+        </div>
+      </div>
       {statusMessage ? <p className="mb-4 text-sm text-slate-300">{statusMessage}</p> : null}
 
       {showPath ? (
@@ -246,10 +296,12 @@ export default function SessionDetailPage() {
                   <td className="px-3 py-2">{entry.location?.lon ?? ''}</td>
                   {providers.map((provider) => (
                     <td key={provider} className="px-3 py-2">
-                      {levels[provider] || ''}
+                      <TrafficBadge level={levels[provider]} />
                     </td>
                   ))}
-                  <td className="px-3 py-2">{entry.observerAssessment}</td>
+                  <td className="px-3 py-2">
+                    <TrafficBadge level={entry.observerAssessment} />
+                  </td>
                   <td className="px-3 py-2">
                     {entry.synced
                       ? 'synced'

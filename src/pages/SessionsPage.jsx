@@ -14,6 +14,7 @@ import {
   markEntriesSyncFailed,
   markEntriesSynced,
   MAX_SYNC_ATTEMPTS,
+  renameSession,
   resetEntriesForRetry,
 } from '../db'
 import { useSettings } from '../hooks/useSettings'
@@ -33,6 +34,7 @@ export default function SessionsPage() {
   const importInputRef = useRef(null)
   const { settings } = useSettings()
   const navigate = useNavigate()
+  const canSync = Boolean(settings?.azureEndpointUrl && settings?.azureApiKey)
 
   async function refresh() {
     setSessions(await listSessionsWithCounts())
@@ -61,6 +63,17 @@ export default function SessionsPage() {
       return
     }
     await deleteSession(id)
+    await refresh()
+  }
+
+  async function handleRenameSession(id, name) {
+    const renamed = await renameSession(id, name)
+    if (!renamed) {
+      setSyncMessage('Session rename failed.')
+      return
+    }
+
+    setSyncMessage(`Renamed session to "${renamed.name}".`)
     await refresh()
   }
 
@@ -113,8 +126,8 @@ export default function SessionsPage() {
   }
 
   async function handleSyncSession(id) {
-    if (!settings?.azureEndpointUrl) {
-      setSyncMessage('Add Azure endpoint in Settings before sync.')
+    if (!canSync) {
+      setSyncMessage('Add Cosmos DB endpoint and API key in Settings before sync.')
       return
     }
 
@@ -151,8 +164,8 @@ export default function SessionsPage() {
   }
 
   async function handleSyncAll() {
-    if (!settings?.azureEndpointUrl) {
-      setSyncMessage('Add Azure endpoint in Settings before sync.')
+    if (!canSync) {
+      setSyncMessage('Add Cosmos DB endpoint and API key in Settings before sync.')
       return
     }
 
@@ -262,7 +275,7 @@ export default function SessionsPage() {
           </button>
           <button
             type="button"
-            disabled={syncingSessionId === 'all'}
+            disabled={syncingSessionId === 'all' || !canSync}
             onClick={handleRetryAndSyncAll}
             className="rounded-md bg-fuchsia-600 px-3 py-2 text-sm font-semibold disabled:opacity-50"
           >
@@ -270,7 +283,7 @@ export default function SessionsPage() {
           </button>
           <button
             type="button"
-            disabled={syncingSessionId === 'all'}
+            disabled={syncingSessionId === 'all' || !canSync}
             onClick={handleSyncAll}
             className="rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold disabled:opacity-50"
           >
@@ -292,16 +305,18 @@ export default function SessionsPage() {
         <div className="grid gap-3 md:grid-cols-2">
           {sessions.map((session) => (
             <SessionCard
-              key={session.id}
+              key={`${session.id}-${session.name}`}
               session={session}
               onOpen={(id) => navigate(`/sessions/${id}`)}
               onDelete={handleDelete}
               onExport={handleExportSession}
               onExportJson={handleExportSessionJson}
+              onRename={handleRenameSession}
               onSync={handleSyncSession}
               onRetryDeadLetters={handleRetryDeadLettersSession}
               onRetryAndSyncNow={handleRetryAndSyncSession}
               syncBusy={syncingSessionId === session.id}
+              syncDisabled={!canSync}
             />
           ))}
         </div>
