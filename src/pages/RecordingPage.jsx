@@ -448,7 +448,7 @@ export default function RecordingPage() {
   return (
     <div className="grid min-h-[calc(100dvh-9.5rem)] gap-3 md:h-[calc(100dvh-9.5rem)] md:min-h-[620px] md:grid-rows-[2fr_1fr]">
       <section className="grid min-h-0 gap-3 md:grid-cols-[2fr_1fr]">
-        <div className="min-h-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
+        <div className="hidden min-h-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-900 md:block">
           <div ref={mapContainerRef} className="h-[40dvh] min-h-[260px] w-full md:h-full md:min-h-[320px]" />
         </div>
 
