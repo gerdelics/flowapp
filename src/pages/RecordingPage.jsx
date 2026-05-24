@@ -104,6 +104,12 @@ export default function RecordingPage() {
   const { requestOnce, startWatching, stopWatching } = geolocation
   const manualExpiryBeepedRef = useRef(false)
   const pathBufferRef = useRef([])
+  const [isMdUp, setIsMdUp] = useState(() => {
+    if (typeof window === 'undefined') {
+      return true
+    }
+    return window.matchMedia('(min-width: 768px)').matches
+  })
   const [togglingPause, setTogglingPause] = useState(false)
   const mapContainerRef = useRef(null)
   const leafletMapRef = useRef(null)
@@ -136,6 +142,23 @@ export default function RecordingPage() {
       stopWatching()
     }
   }, [requestOnce, startWatching, stopWatching])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined
+    }
+
+    const media = window.matchMedia('(min-width: 768px)')
+    const onChange = (event) => {
+      setIsMdUp(event.matches)
+    }
+
+    media.addEventListener('change', onChange)
+
+    return () => {
+      media.removeEventListener('change', onChange)
+    }
+  }, [])
 
   useEffect(() => {
     if (!session.session) {
@@ -192,6 +215,10 @@ export default function RecordingPage() {
   }, [geolocation.location, session.session])
 
   useEffect(() => {
+    if (!isMdUp) {
+      return undefined
+    }
+
     if (!mapContainerRef.current || leafletMapRef.current) {
       return undefined
     }
@@ -226,9 +253,13 @@ export default function RecordingPage() {
       leafletMarkerRef.current = null
       hasCenteredOnFixRef.current = false
     }
-  }, [])
+  }, [isMdUp])
 
   useEffect(() => {
+    if (!isMdUp) {
+      return undefined
+    }
+
     const map = leafletMapRef.current
     if (!map) {
       return undefined
@@ -242,7 +273,7 @@ export default function RecordingPage() {
       cancelAnimationFrame(rafId)
       window.removeEventListener('resize', invalidate)
     }
-  }, [])
+  }, [isMdUp])
 
   useEffect(() => {
     const map = leafletMapRef.current
@@ -476,9 +507,14 @@ export default function RecordingPage() {
   return (
     <div className="grid min-h-[calc(100dvh-9.5rem)] gap-3 md:h-[calc(100dvh-9.5rem)] md:min-h-[620px] md:grid-rows-[2fr_1fr]">
       <section className="grid min-h-0 gap-3 md:grid-cols-[2fr_1fr]">
-        <div className="hidden min-h-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-900 md:block">
-          <div ref={mapContainerRef} className="h-[40dvh] min-h-[260px] w-full md:h-full md:min-h-[320px]" />
-        </div>
+        {isMdUp ? (
+          <div className="min-h-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
+            <div
+              ref={mapContainerRef}
+              className="h-[40dvh] min-h-[260px] w-full md:h-full md:min-h-[320px]"
+            />
+          </div>
+        ) : null}
 
         <div className="rounded-xl border border-slate-700 bg-slate-900 p-4">
           <p className="text-sm text-slate-400">Active session</p>
