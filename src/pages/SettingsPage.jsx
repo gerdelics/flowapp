@@ -85,8 +85,14 @@ export default function SettingsPage() {
     setDemoMessage('')
 
     try {
-      const gpxUrl = encodeURI('/PENNY Tiszakécske to Gólya u. 1 Track.gpx')
-      const archiveUrl = encodeURI('/Tiszakécske_kanyar_1-e8ea21f7-b931-4263-9240-6fa4f2e04b46.json')
+      const baseUrl = import.meta.env.BASE_URL || '/'
+      const base = new URL(baseUrl, window.location.origin)
+
+      const gpxUrl = new URL('PENNY Tiszakécske to Gólya u. 1 Track.gpx', base).toString()
+      const archiveUrl = new URL(
+        'Tiszakécske_kanyar_1-e8ea21f7-b931-4263-9240-6fa4f2e04b46.json',
+        base,
+      ).toString()
 
       const [gpxResponse, archiveResponse] = await Promise.all([fetch(gpxUrl), fetch(archiveUrl)])
 
