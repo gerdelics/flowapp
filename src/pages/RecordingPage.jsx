@@ -202,6 +202,7 @@ export default function RecordingPage() {
   const [routeCityFilter, setRouteCityFilter] = useState('')
   const [selectedOverlayRouteId, setSelectedOverlayRouteId] = useState('')
   const [overlayPoints, setOverlayPoints] = useState([])
+  const [routePickerOpen, setRoutePickerOpen] = useState(false)
   const [isMdUp, setIsMdUp] = useState(() => {
     if (typeof window === 'undefined') {
       return true
@@ -239,18 +240,24 @@ export default function RecordingPage() {
 
   function handleCityFilterChange(city) {
     setRouteCityFilter(city)
-    setSelectedOverlayRouteId('')
-    setOverlayPoints([])
   }
 
   function handleOverlayRouteChange(id) {
     setSelectedOverlayRouteId(id)
     if (!id) {
       setOverlayPoints([])
+      setRoutePickerOpen(false)
       return
     }
     const route = savedRoutes.find((r) => r.id === id)
     setOverlayPoints(route?.points ?? [])
+    setRoutePickerOpen(false)
+  }
+
+  function handleClearOverlayRoute() {
+    setSelectedOverlayRouteId('')
+    setOverlayPoints([])
+    setRouteCityFilter('')
   }
 
   const dismissRecordToast = useCallback(() => {
@@ -552,6 +559,64 @@ export default function RecordingPage() {
     <>
       <RecordToast record={recordToast} onDismiss={dismissRecordToast} />
 
+      {/* Route picker modal */}
+      {routePickerOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center"
+          onClick={() => setRoutePickerOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-t-2xl border border-slate-700 bg-slate-900 p-5 sm:rounded-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-sm font-bold text-slate-100">Útvonal kiválasztása</p>
+              <button
+                type="button"
+                onClick={() => setRoutePickerOpen(false)}
+                className="text-sm text-slate-500 hover:text-slate-200"
+              >
+                Mégse
+              </button>
+            </div>
+
+            <select
+              value={routeCityFilter}
+              onChange={(e) => handleCityFilterChange(e.target.value)}
+              className="mb-3 w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-cyan-500 focus:outline-none"
+            >
+              <option value="">— Összes város —</option>
+              {routeCities.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+
+            <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto">
+              {filteredRoutes.length === 0 ? (
+                <li className="py-2 text-center text-sm text-slate-500">Nincs útvonal</li>
+              ) : (
+                filteredRoutes.map((r) => (
+                  <li key={r.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleOverlayRouteChange(r.id)}
+                      className={`w-full rounded-lg px-3 py-2.5 text-left transition ${
+                        r.id === selectedOverlayRouteId
+                          ? 'bg-orange-500/20 text-orange-300'
+                          : 'hover:bg-slate-800 text-slate-200'
+                      }`}
+                    >
+                      <p className="text-sm font-semibold">{r.name}</p>
+                      <p className="text-xs text-slate-500">{r.city}</p>
+                    </button>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+        </div>
+      ) : null}
+
       <div className="grid min-h-[calc(100dvh-9.5rem)] gap-3 md:h-[calc(100dvh-9.5rem)] md:min-h-[620px] md:grid-rows-[2fr_1fr]">
       <section className="grid min-h-0 gap-3 md:grid-cols-[2fr_1fr]">
         {isMdUp ? (
@@ -666,42 +731,40 @@ export default function RecordingPage() {
           {/* Route overlay loader */}
           {savedRoutes.length > 0 ? (
             <div className="mt-4 border-t border-slate-700 pt-4">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Útvonal betöltése
-              </p>
-              <div className="flex flex-col gap-2">
-                <select
-                  value={routeCityFilter}
-                  onChange={(e) => handleCityFilterChange(e.target.value)}
-                  className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-cyan-500 focus:outline-none"
+              {selectedOverlayRouteId ? (
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs text-slate-500">Betöltött útvonal</p>
+                    <p className="truncate text-sm font-semibold text-orange-400">
+                      {savedRoutes.find((r) => r.id === selectedOverlayRouteId)?.name}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setRoutePickerOpen(true)}
+                      className="text-xs text-slate-400 hover:text-slate-200"
+                    >
+                      Csere
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearOverlayRoute}
+                      className="text-xs text-slate-500 hover:text-red-400"
+                    >
+                      Eltávolítás
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setRoutePickerOpen(true)}
+                  className="text-sm text-slate-400 hover:text-slate-100"
                 >
-                  <option value="">— Összes város —</option>
-                  {routeCities.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-
-                <select
-                  value={selectedOverlayRouteId}
-                  onChange={(e) => handleOverlayRouteChange(e.target.value)}
-                  className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-cyan-500 focus:outline-none"
-                >
-                  <option value="">— Válassz útvonalat —</option>
-                  {filteredRoutes.map((r) => (
-                    <option key={r.id} value={r.id}>{r.name}</option>
-                  ))}
-                </select>
-
-                {selectedOverlayRouteId ? (
-                  <button
-                    type="button"
-                    onClick={() => handleOverlayRouteChange('')}
-                    className="rounded-lg border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-400 hover:border-slate-500 hover:text-slate-200"
-                  >
-                    Útvonal eltávolítása
-                  </button>
-                ) : null}
-              </div>
+                  + Útvonal betöltése
+                </button>
+              )}
             </div>
           ) : null}
         </div>
