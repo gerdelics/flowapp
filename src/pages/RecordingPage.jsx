@@ -15,22 +15,6 @@ const TRAFFIC_LEVELS = [
   { key: 'heavy', label: 'HEAVY', className: 'bg-red-600 hover:bg-red-500' },
 ]
 
-function getOsmEmbedUrl(location) {
-  const fallback = {
-    lat: 47.4979,
-    lon: 19.0402,
-  }
-
-  const center = location || fallback
-  const delta = 0.003
-  const left = center.lon - delta
-  const right = center.lon + delta
-  const bottom = center.lat - delta
-  const top = center.lat + delta
-
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${left}%2C${bottom}%2C${right}%2C${top}&layer=mapnik&marker=${center.lat}%2C${center.lon}`
-}
-
 function TrafficCard({ title, iconUrl, value, onSelect }) {
   return (
     <div className="h-full rounded-xl border border-slate-700 bg-slate-900 p-3">
@@ -92,7 +76,6 @@ export default function RecordingPage() {
   const { requestOnce, startWatching, stopWatching } = geolocation
   const manualExpiryBeepedRef = useRef(false)
   const pathBufferRef = useRef([])
-  const [pathRenderVersion, setPathRenderVersion] = useState(0)
   const [togglingPause, setTogglingPause] = useState(false)
   const mapContainerRef = useRef(null)
   const leafletMapRef = useRef(null)
@@ -154,7 +137,27 @@ export default function RecordingPage() {
         timestamp: new Date().toISOString(),
         fixTimestamp: geolocation.location.timestamp,
       })
-      setPathRenderVersion((prev) => prev + 1)
+
+      const map = leafletMapRef.current
+      if (!map || !session.session) {
+        return
+      }
+
+      const pathPoints = pathBufferRef.current
+        .filter((point) => typeof point?.lat === 'number' && typeof point?.lon === 'number')
+        .map((point) => [point.lat, point.lon])
+
+      if (pathPoints.length > 0) {
+        if (!leafletPathRef.current) {
+          leafletPathRef.current = L.polyline(pathPoints, {
+            color: '#22d3ee',
+            weight: 5,
+            opacity: 0.9,
+          }).addTo(map)
+        } else {
+          leafletPathRef.current.setLatLngs(pathPoints)
+        }
+      }
     }, 1000)
 
     return () => clearInterval(sampler)
@@ -211,7 +214,7 @@ export default function RecordingPage() {
       cancelAnimationFrame(rafId)
       window.removeEventListener('resize', invalidate)
     }
-  }, [session.session, activeProviders.length])
+  }, [])
 
   useEffect(() => {
     const map = leafletMapRef.current
@@ -259,7 +262,7 @@ export default function RecordingPage() {
       map.removeLayer(leafletPathRef.current)
       leafletPathRef.current = null
     }
-  }, [geolocation.location, pathRenderVersion, session.session])
+  }, [geolocation.location, session.session])
 
   useEffect(() => {
     if (!session.session) {
@@ -313,7 +316,6 @@ export default function RecordingPage() {
           timestamp: new Date().toISOString(),
           fixTimestamp: geolocation.location.timestamp,
         })
-        setPathRenderVersion((prev) => prev + 1)
       }
 
       setManualSecondsLeft(settings?.sampleIntervalSec || 30)
@@ -361,7 +363,12 @@ export default function RecordingPage() {
       setManualSecondsLeft(0)
       manualExpiryBeepedRef.current = false
       pathBufferRef.current = []
-      setPathRenderVersion(0)
+
+      const map = leafletMapRef.current
+      if (map && leafletPathRef.current) {
+        map.removeLayer(leafletPathRef.current)
+        leafletPathRef.current = null
+      }
     } finally {
       setStoppingSession(false)
     }
@@ -434,25 +441,15 @@ export default function RecordingPage() {
     return `1.5fr repeat(${activeProviders.length}, minmax(130px, 1fr))`
   }, [activeProviders.length])
 
-  const mapUrl = useMemo(() => getOsmEmbedUrl(geolocation.location), [geolocation.location])
-
   if (loading || !settings) {
     return <p>Loading settings…</p>
   }
 
   return (
-    <div className="grid h-[calc(100dvh-9.5rem)] min-h-[620px] grid-rows-[2fr_1fr] gap-3">
-      <section className="grid min-h-0 grid-cols-[2fr_1fr] gap-3">
+    <div className="grid min-h-[calc(100dvh-9.5rem)] gap-3 md:h-[calc(100dvh-9.5rem)] md:min-h-[620px] md:grid-rows-[2fr_1fr]">
+      <section className="grid min-h-0 gap-3 md:grid-cols-[2fr_1fr]">
         <div className="min-h-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
-          <div className="relative h-full min-h-[320px] w-full">
-            <iframe
-              title="OpenStreetMap fallback"
-              src={mapUrl}
-              className="absolute inset-0 h-full w-full border-0"
-              loading="lazy"
-            />
-            <div ref={mapContainerRef} className="absolute inset-0 h-full w-full" />
-          </div>
+          <div ref={mapContainerRef} className="h-[40dvh] min-h-[260px] w-full md:h-full md:min-h-[320px]" />
         </div>
 
         <div className="rounded-xl border border-slate-700 bg-slate-900 p-4">
@@ -552,10 +549,28 @@ export default function RecordingPage() {
       </section>
 
       <section className="min-h-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-950/50 p-2">
-        <div
-          className="grid h-full gap-2"
-          style={{ gridTemplateColumns: gridColumns }}
-        >
+        <div className="flex h-full gap-2 overflow-x-auto pb-1 md:hidden">
+          <div className="min-w-[180px] flex-1">
+            <TrafficCard
+              title="User Perception"
+              value={session.observerAssessment}
+              onSelect={session.setObserverAssessment}
+            />
+          </div>
+
+          {activeProviders.map((provider) => (
+            <div key={provider.id} className="min-w-[180px] flex-1">
+              <TrafficCard
+                title={provider.name}
+                iconUrl={provider.iconUrl}
+                value={session.providerLevels[provider.name] || 'medium'}
+                onSelect={(level) => session.updateProviderLevel(provider.name, level)}
+              />
+            </div>
+          ))}
+        </div>
+
+        <div className="hidden h-full gap-2 md:grid" style={{ gridTemplateColumns: gridColumns }}>
           <TrafficCard
             title="User Perception"
             value={session.observerAssessment}
