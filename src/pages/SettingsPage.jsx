@@ -21,7 +21,7 @@ export default function SettingsPage() {
     reload,
   } = useSettings()
   const geolocation = useGeolocation()
-  const { canInstall, triggerInstall } = useInstallPrompt()
+  const { canInstall, isInstalled, triggerInstall, triggerUninstallHelp } = useInstallPrompt()
 
   const [nameInput, setNameInput] = useState('')
   const [csvNameInput, setCsvNameInput] = useState('')
@@ -166,9 +166,21 @@ export default function SettingsPage() {
           </button>
         </div>
 
-        {canInstall ? (
-          <div className="mt-4 rounded-md border border-emerald-600/40 bg-emerald-950/20 p-3">
-            <p className="text-sm text-emerald-200">PWA install is available on this device.</p>
+        <div
+          className={`mt-4 rounded-md border p-3 ${
+            isInstalled
+              ? 'border-emerald-600/40 bg-emerald-950/20'
+              : 'border-slate-700 bg-slate-800'
+          }`}
+        >
+          <p className="text-sm text-slate-200">
+            App status on this device:{' '}
+            <span className={`font-semibold ${isInstalled ? 'text-emerald-300' : 'text-amber-300'}`}>
+              {isInstalled ? 'Installed' : 'Not installed'}
+            </span>
+          </p>
+
+          {canInstall ? (
             <button
               type="button"
               onClick={triggerInstall}
@@ -176,8 +188,18 @@ export default function SettingsPage() {
             >
               Install app
             </button>
-          </div>
-        ) : null}
+          ) : null}
+
+          {isInstalled ? (
+            <button
+              type="button"
+              onClick={triggerUninstallHelp}
+              className="mt-2 rounded-md bg-red-500 px-3 py-1.5 text-sm font-semibold text-white"
+            >
+              Uninstall app
+            </button>
+          ) : null}
+        </div>
       </section>
 
       <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
