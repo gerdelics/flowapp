@@ -113,7 +113,6 @@ function addTileLayerWithFallback(map) {
     const nextLayer = L.tileLayer(source.url, {
       maxZoom: 19,
       attribution: source.attribution,
-      crossOrigin: true,
     })
 
     nextLayer.on('tileerror', () => {
