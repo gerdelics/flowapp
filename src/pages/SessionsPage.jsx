@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import SessionCard from '../components/SessionCard'
 import {
   deleteSession,
   getDeadLetterEntriesBySessionId,
   getEntriesBySessionId,
+  getSessionById,
   getDeadLetterEntries,
   getRetryableUnsyncedEntries,
   getRetryableUnsyncedEntriesBySessionId,
+  importSessionArchive,
   listSessionsWithCounts,
   markEntriesSyncFailed,
   markEntriesSynced,
@@ -17,11 +19,18 @@ import {
 import { useSettings } from '../hooks/useSettings'
 import { syncEntriesToAzure } from '../utils/azureSync'
 import { exportLegacyCsv } from '../utils/csvExport'
+import {
+  buildSessionArchiveFilename,
+  downloadSessionArchive,
+  readSessionArchiveFile,
+} from '../utils/sessionArchive'
 
 export default function SessionsPage() {
   const [sessions, setSessions] = useState([])
   const [syncingSessionId, setSyncingSessionId] = useState(null)
   const [syncMessage, setSyncMessage] = useState('')
+  const [importingArchive, setImportingArchive] = useState(false)
+  const importInputRef = useRef(null)
   const { settings } = useSettings()
   const navigate = useNavigate()
 
@@ -63,6 +72,44 @@ export default function SessionsPage() {
     const entries = await getEntriesBySessionId(id)
     const session = sessions.find((item) => item.id === id)
     exportLegacyCsv(entries, settings, `${session?.name || 'session'}-${id}.csv`)
+  }
+
+  async function handleExportSessionJson(id) {
+    const [session, entries] = await Promise.all([
+      getSessionById(id),
+      getEntriesBySessionId(id),
+    ])
+
+    if (!session) {
+      setSyncMessage('Session not found for export.')
+      return
+    }
+
+    downloadSessionArchive(session, entries, buildSessionArchiveFilename(session))
+  }
+
+  async function handleImportSessionArchive(event) {
+    const file = event.target.files?.[0]
+    if (!file) {
+      return
+    }
+
+    setImportingArchive(true)
+    setSyncMessage('')
+    try {
+      const archive = await readSessionArchiveFile(file)
+      const imported = await importSessionArchive(archive)
+      setSyncMessage(
+        `Imported session "${imported.session.name}" with ${imported.importedEntryCount} entries.`,
+      )
+      await refresh()
+      navigate(`/sessions/${imported.session.id}`)
+    } catch (error) {
+      setSyncMessage(error.message || 'Import failed.')
+    } finally {
+      setImportingArchive(false)
+      event.target.value = ''
+    }
   }
 
   async function handleSyncSession(id) {
@@ -200,6 +247,14 @@ export default function SessionsPage() {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
+            disabled={importingArchive}
+            onClick={() => importInputRef.current?.click()}
+            className="rounded-md bg-cyan-600 px-3 py-2 text-sm font-semibold disabled:opacity-50"
+          >
+            {importingArchive ? 'Importing…' : 'Import session JSON'}
+          </button>
+          <button
+            type="button"
             onClick={handleRetryDeadLettersAll}
             className="rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-950"
           >
@@ -223,6 +278,13 @@ export default function SessionsPage() {
           </button>
         </div>
       </div>
+      <input
+        ref={importInputRef}
+        type="file"
+        accept="application/json,.json"
+        className="hidden"
+        onChange={handleImportSessionArchive}
+      />
       {syncMessage ? <p className="mb-3 text-sm text-slate-300">{syncMessage}</p> : null}
       {sessions.length === 0 ? (
         <p className="text-slate-400">No sessions yet.</p>
@@ -235,6 +297,7 @@ export default function SessionsPage() {
               onOpen={(id) => navigate(`/sessions/${id}`)}
               onDelete={handleDelete}
               onExport={handleExportSession}
+              onExportJson={handleExportSessionJson}
               onSync={handleSyncSession}
               onRetryDeadLetters={handleRetryDeadLettersSession}
               onRetryAndSyncNow={handleRetryAndSyncSession}

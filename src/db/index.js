@@ -119,6 +119,86 @@ export async function getSettings() {
   return ensureSettings()
 }
 
+function normalizeImportedId(preferredId, usedIds) {
+  if (preferredId && !usedIds.has(preferredId)) {
+    usedIds.add(preferredId)
+    return preferredId
+  }
+
+  const generatedId = uuidv4()
+  usedIds.add(generatedId)
+  return generatedId
+}
+
+function normalizeImportedEntry(entry, sessionId, usedIds) {
+  const nextId = normalizeImportedId(entry?.id, usedIds)
+
+  return {
+    ...entry,
+    id: nextId,
+    sessionId,
+    location: entry?.location || null,
+    providers: Array.isArray(entry?.providers) ? entry.providers : [],
+    observerAssessment: entry?.observerAssessment || 'medium',
+    synced: Boolean(entry?.synced),
+    syncStatus: entry?.syncStatus || (entry?.synced ? 'synced' : 'pending'),
+    syncAttempts: Number.isFinite(entry?.syncAttempts) ? entry.syncAttempts : 0,
+    lastSyncError: entry?.lastSyncError ?? null,
+    lastSyncAt: entry?.lastSyncAt ?? null,
+    lastSyncAttemptAt: entry?.lastSyncAttemptAt ?? null,
+  }
+}
+
+export async function importSessionArchive(archive) {
+  const sourceSession = archive?.session
+  const sourceEntries = Array.isArray(archive?.entries) ? archive.entries : []
+
+  if (!sourceSession || typeof sourceSession !== 'object') {
+    throw new Error('Invalid session archive: missing session data.')
+  }
+
+  const sessionId = sourceSession.id && !(await db.sessions.get(sourceSession.id))
+    ? sourceSession.id
+    : uuidv4()
+
+  const entryIds = sourceEntries
+    .map((entry) => entry?.id)
+    .filter((id) => typeof id === 'string' && id.length > 0)
+
+  const existingEntries = entryIds.length ? await db.entries.where('id').anyOf(entryIds).toArray() : []
+  const usedIds = new Set([
+    sessionId,
+    ...existingEntries.map((entry) => entry.id),
+  ])
+
+  const importedSession = {
+    ...sourceSession,
+    id: sessionId,
+    path: Array.isArray(sourceSession.path) ? sourceSession.path : [],
+  }
+
+  let importedEntryCount = 0
+
+  await db.transaction('rw', db.sessions, db.entries, async () => {
+    await db.sessions.put(importedSession)
+
+    for (const entry of sourceEntries) {
+      if (!entry || typeof entry !== 'object') {
+        continue
+      }
+
+      const normalizedEntry = normalizeImportedEntry(entry, sessionId, usedIds)
+      await db.entries.put(normalizedEntry)
+      importedEntryCount += 1
+    }
+  })
+
+  return {
+    session: importedSession,
+    importedEntryCount,
+  }
+}
+
 export async function updateSettings(patch) {
   const current = await ensureSettings()
   const next = withSettingsDefaults({ ...current, ...patch, id: 'singleton' })

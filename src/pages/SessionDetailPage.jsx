@@ -14,6 +14,10 @@ import {
 import { useSettings } from '../hooks/useSettings'
 import { syncEntriesToAzure } from '../utils/azureSync'
 import { exportLegacyCsv } from '../utils/csvExport'
+import {
+  buildSessionArchiveFilename,
+  downloadSessionArchive,
+} from '../utils/sessionArchive'
 import RouteMap from '../components/RouteMap'
 
 function mapProviderLevels(entry) {
@@ -69,6 +73,10 @@ export default function SessionDetailPage() {
       return
     }
     exportLegacyCsv(entries, settings, `${session.name || 'session'}-${session.id}.csv`)
+  }
+
+  async function handleExportJson() {
+    downloadSessionArchive(session, entries, buildSessionArchiveFilename(session))
   }
 
   async function handleSync() {
@@ -144,6 +152,13 @@ export default function SessionDetailPage() {
             className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold"
           >
             Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={handleExportJson}
+            className="rounded-md bg-slate-700 px-3 py-2 text-sm font-semibold"
+          >
+            Export JSON
           </button>
           <button
             type="button"
