@@ -1,9 +1,16 @@
 import { useState } from 'react'
-import { clearAllData, getAllEntries } from '../db'
+import {
+  clearAllData,
+  db,
+  getAllEntries,
+  importSessionArchive,
+  setSessionPlannedRoute,
+} from '../db'
 import { useGeolocation } from '../hooks/useGeolocation'
 import { useInstallPrompt } from '../hooks/useInstallPrompt'
 import { useSettings } from '../hooks/useSettings'
 import { exportLegacyCsv } from '../utils/csvExport'
+import { parseGpx } from '../utils/gpxParser'
 
 export default function SettingsPage() {
   const {
@@ -28,6 +35,8 @@ export default function SettingsPage() {
   const [draggedProviderId, setDraggedProviderId] = useState(null)
   const [dropTargetProviderId, setDropTargetProviderId] = useState(null)
   const [dropTargetPosition, setDropTargetPosition] = useState('before')
+  const [demoLoading, setDemoLoading] = useState(false)
+  const [demoMessage, setDemoMessage] = useState('')
 
   if (loading || !settings) {
     return <p>Loading settings…</p>
@@ -69,6 +78,55 @@ export default function SettingsPage() {
       await updateProviderIcon(providerId, typeof reader.result === 'string' ? reader.result : '')
     }
     reader.readAsDataURL(file)
+  }
+
+  async function handleLoadDemoData() {
+    setDemoLoading(true)
+    setDemoMessage('')
+
+    try {
+      const gpxUrl = encodeURI('/PENNY Tiszakécske to Gólya u. 1 Track.gpx')
+      const archiveUrl = encodeURI('/Tiszakécske_kanyar_1-e8ea21f7-b931-4263-9240-6fa4f2e04b46.json')
+
+      const [gpxResponse, archiveResponse] = await Promise.all([fetch(gpxUrl), fetch(archiveUrl)])
+
+      if (!gpxResponse.ok) {
+        throw new Error('A demo GPX fájl nem érhető el.')
+      }
+
+      if (!archiveResponse.ok) {
+        throw new Error('A demo JSON fájl nem érhető el.')
+      }
+
+      const [gpxText, archive] = await Promise.all([gpxResponse.text(), archiveResponse.json()])
+      const points = parseGpx(gpxText)
+
+      if (!points.length) {
+        throw new Error('A demo GPX nem tartalmaz használható pontokat.')
+      }
+
+      const routeId = archive?.session?.plannedRouteId || crypto.randomUUID()
+      const route = {
+        id: routeId,
+        city: 'Tiszakécske',
+        name: 'Arterial 1',
+        points,
+        createdAt: new Date().toISOString(),
+      }
+
+      await db.routes.put(route)
+
+      const imported = await importSessionArchive(archive)
+      await setSessionPlannedRoute(imported.session.id, route.id)
+
+      setDemoMessage(
+        `Demo import kész: útvonal (${route.name}) létrehozva, session importálva (${imported.importedEntryCount} bejegyzés).`,
+      )
+    } catch (error) {
+      setDemoMessage(error?.message || 'A demo adatok betöltése sikertelen.')
+    } finally {
+      setDemoLoading(false)
+    }
   }
 
   function updateDropPreview(providerId, position) {
@@ -390,6 +448,26 @@ export default function SettingsPage() {
             className="mt-1 w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2"
           />
         </label>
+      </section>
+
+      <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
+        <h2 className="text-xl font-semibold">Demo Data</h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Betölti a demo útvonalat (Tiszakécske / Arterial 1) GPX-ből és importálja a session JSON-t.
+        </p>
+
+        <button
+          type="button"
+          disabled={demoLoading}
+          onClick={handleLoadDemoData}
+          className="mt-3 rounded-md bg-violet-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          {demoLoading ? 'Demo betöltés…' : 'Load demo data'}
+        </button>
+
+        {demoMessage ? (
+          <p className="mt-3 text-sm text-slate-200">{demoMessage}</p>
+        ) : null}
       </section>
 
       <section className="rounded-xl border border-red-700 bg-red-950/40 p-4">
