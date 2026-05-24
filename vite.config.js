@@ -14,7 +14,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['favicon.svg', 'icons/pwa-192.svg', 'icons/pwa-512.svg'],
       manifest: {
         name: 'Traffic Monitor PWA',
         short_name: 'TrafficMonitor',
@@ -27,10 +27,22 @@ export default defineConfig({
         scope: base,
         icons: [
           {
-            src: '/favicon.svg',
-            sizes: 'any',
+            src: 'icons/pwa-192.svg',
+            sizes: '192x192',
             type: 'image/svg+xml',
-            purpose: 'any maskable',
+            purpose: 'any',
+          },
+          {
+            src: 'icons/pwa-512.svg',
+            sizes: '512x512',
+            type: 'image/svg+xml',
+            purpose: 'any',
+          },
+          {
+            src: 'icons/pwa-512.svg',
+            sizes: '512x512',
+            type: 'image/svg+xml',
+            purpose: 'maskable',
           },
         ],
       },
