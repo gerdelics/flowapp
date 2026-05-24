@@ -96,6 +96,13 @@ class TrafficMonitorDb extends Dexie {
             entry.lastSyncAttemptAt = entry.lastSyncAttemptAt || null
           })
       })
+
+    this.version(3).stores({
+      sessions: 'id, startTime, endTime',
+      entries: 'id, sessionId, timestamp, synced, syncStatus, syncAttempts, lastSyncAt',
+      settings: 'id',
+      routes: 'id, city, name, createdAt',
+    })
   }
 }
 

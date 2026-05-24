@@ -4,6 +4,7 @@ import { useInstallPrompt } from '../hooks/useInstallPrompt'
 const links = [
   { to: '/', label: 'Recording' },
   { to: '/sessions', label: 'Sessions' },
+  { to: '/routes', label: 'Routes' },
   { to: '/settings', label: 'Settings' },
 ]
 

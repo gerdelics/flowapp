@@ -4,6 +4,7 @@ import { useGeolocation } from '../hooks/useGeolocation'
 import { useSession } from '../hooks/useSession'
 import { useSettings } from '../hooks/useSettings'
 import RouteMap from '../components/RouteMap'
+import { db } from '../db'
 
 function sanitizePath(path) {
   if (!Array.isArray(path)) {
@@ -195,6 +196,12 @@ export default function RecordingPage() {
   const manualExpiryBeepedRef = useRef(false)
   const pathBufferRef = useRef([])
   const [livePathPoints, setLivePathPoints] = useState([])
+
+  // Route overlay state
+  const [savedRoutes, setSavedRoutes] = useState([])
+  const [routeCityFilter, setRouteCityFilter] = useState('')
+  const [selectedOverlayRouteId, setSelectedOverlayRouteId] = useState('')
+  const [overlayPoints, setOverlayPoints] = useState([])
   const [isMdUp, setIsMdUp] = useState(() => {
     if (typeof window === 'undefined') {
       return true
@@ -212,6 +219,39 @@ export default function RecordingPage() {
   )
 
   const session = useSession(activeProviders)
+
+  // Load saved routes from DB
+  useEffect(() => {
+    db.routes.orderBy('city').toArray().then(setSavedRoutes)
+  }, [])
+
+  // Unique cities from saved routes
+  const routeCities = useMemo(() => {
+    const set = new Set(savedRoutes.map((r) => r.city))
+    return Array.from(set).sort()
+  }, [savedRoutes])
+
+  // Routes filtered by selected city
+  const filteredRoutes = useMemo(() => {
+    if (!routeCityFilter) return savedRoutes
+    return savedRoutes.filter((r) => r.city === routeCityFilter)
+  }, [savedRoutes, routeCityFilter])
+
+  function handleCityFilterChange(city) {
+    setRouteCityFilter(city)
+    setSelectedOverlayRouteId('')
+    setOverlayPoints([])
+  }
+
+  function handleOverlayRouteChange(id) {
+    setSelectedOverlayRouteId(id)
+    if (!id) {
+      setOverlayPoints([])
+      return
+    }
+    const route = savedRoutes.find((r) => r.id === id)
+    setOverlayPoints(route?.points ?? [])
+  }
 
   const dismissRecordToast = useCallback(() => {
     if (recordToastTimerRef.current) {
@@ -519,6 +559,7 @@ export default function RecordingPage() {
             <RouteMap
               className="h-[40dvh] min-h-[260px] w-full sm:h-[42dvh] md:h-full md:min-h-[320px]"
               points={livePathPoints}
+              overlayPoints={overlayPoints}
               currentLocation={geolocation.location}
               followCurrent={sessionActive && !sessionPaused}
               showCurrentMarker
@@ -620,6 +661,48 @@ export default function RecordingPage() {
           </p>
           {sessionPaused ? (
             <p className="mt-1 text-sm font-semibold text-amber-300">Session is paused.</p>
+          ) : null}
+
+          {/* Route overlay loader */}
+          {savedRoutes.length > 0 ? (
+            <div className="mt-4 border-t border-slate-700 pt-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Útvonal betöltése
+              </p>
+              <div className="flex flex-col gap-2">
+                <select
+                  value={routeCityFilter}
+                  onChange={(e) => handleCityFilterChange(e.target.value)}
+                  className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-cyan-500 focus:outline-none"
+                >
+                  <option value="">— Összes város —</option>
+                  {routeCities.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedOverlayRouteId}
+                  onChange={(e) => handleOverlayRouteChange(e.target.value)}
+                  className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-cyan-500 focus:outline-none"
+                >
+                  <option value="">— Válassz útvonalat —</option>
+                  {filteredRoutes.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+
+                {selectedOverlayRouteId ? (
+                  <button
+                    type="button"
+                    onClick={() => handleOverlayRouteChange('')}
+                    className="rounded-lg border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                  >
+                    Útvonal eltávolítása
+                  </button>
+                ) : null}
+              </div>
+            </div>
           ) : null}
         </div>
       </section>

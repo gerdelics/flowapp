@@ -18,6 +18,7 @@ function normalizePoints(points) {
 export default function RouteMap({
   className,
   points,
+  overlayPoints,
   currentLocation,
   followCurrent = false,
   showCurrentMarker = true,
@@ -30,12 +31,14 @@ export default function RouteMap({
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const pathRef = useRef(null)
+  const overlayPathRef = useRef(null)
   const currentMarkerRef = useRef(null)
   const startMarkerRef = useRef(null)
   const endMarkerRef = useRef(null)
   const routeFittedRef = useRef(false)
 
   const latLngPoints = useMemo(() => normalizePoints(points), [points])
+  const latLngOverlay = useMemo(() => normalizePoints(overlayPoints), [overlayPoints])
 
   useEffect(() => {
     routeFittedRef.current = false
@@ -90,6 +93,7 @@ export default function RouteMap({
       }
 
       pathRef.current = null
+      overlayPathRef.current = null
       currentMarkerRef.current = null
       startMarkerRef.current = null
       endMarkerRef.current = null
@@ -164,6 +168,31 @@ export default function RouteMap({
       routeFittedRef.current = false
     }
   }, [fitRoute, followCurrent, latLngPoints, showStartEndMarkers])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !map._loaded) {
+      return
+    }
+
+    if (latLngOverlay.length > 0) {
+      if (!overlayPathRef.current) {
+        overlayPathRef.current = L.polyline(latLngOverlay, {
+          color: '#f97316',
+          weight: 4,
+          opacity: 0.85,
+          dashArray: '8 5',
+        }).addTo(map)
+      } else {
+        overlayPathRef.current.setLatLngs(latLngOverlay)
+      }
+    } else {
+      if (overlayPathRef.current) {
+        map.removeLayer(overlayPathRef.current)
+        overlayPathRef.current = null
+      }
+    }
+  }, [latLngOverlay])
 
   useEffect(() => {
     const map = mapRef.current
