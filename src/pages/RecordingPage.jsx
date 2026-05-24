@@ -113,6 +113,7 @@ export default function RecordingPage() {
   const [togglingPause, setTogglingPause] = useState(false)
   const mapContainerRef = useRef(null)
   const leafletMapRef = useRef(null)
+  const leafletTileLayerRef = useRef(null)
   const leafletPathRef = useRef(null)
   const leafletMarkerRef = useRef(null)
   const hasCenteredOnFixRef = useRef(false)
@@ -232,23 +233,31 @@ export default function RecordingPage() {
       zoomControl: true,
     }).setView([47.4979, 19.0402], 14)
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors',
     }).addTo(map)
 
     leafletMapRef.current = map
+    leafletTileLayerRef.current = tileLayer
 
     const resizeSoon = setTimeout(() => {
       leafletMapRef.current?.invalidateSize()
+      leafletTileLayerRef.current?.redraw()
     }, 50)
+    const resizeLater = setTimeout(() => {
+      leafletMapRef.current?.invalidateSize()
+      leafletTileLayerRef.current?.redraw()
+    }, 250)
 
     return () => {
       clearTimeout(resizeSoon)
+      clearTimeout(resizeLater)
       if (leafletMapRef.current) {
         leafletMapRef.current.remove()
         leafletMapRef.current = null
       }
+      leafletTileLayerRef.current = null
       leafletPathRef.current = null
       leafletMarkerRef.current = null
       hasCenteredOnFixRef.current = false
@@ -265,13 +274,29 @@ export default function RecordingPage() {
       return undefined
     }
 
-    const invalidate = () => map.invalidateSize()
+    const invalidate = () => {
+      map.invalidateSize()
+      leafletTileLayerRef.current?.redraw()
+    }
     const rafId = requestAnimationFrame(invalidate)
     window.addEventListener('resize', invalidate)
+
+    const container = mapContainerRef.current
+    const resizeObserver =
+      container && typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => {
+            invalidate()
+          })
+        : null
+
+    if (resizeObserver && container) {
+      resizeObserver.observe(container)
+    }
 
     return () => {
       cancelAnimationFrame(rafId)
       window.removeEventListener('resize', invalidate)
+      resizeObserver?.disconnect()
     }
   }, [isMdUp])
 
