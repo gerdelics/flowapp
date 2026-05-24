@@ -19,10 +19,12 @@ export default defineConfig({
         name: 'Traffic Monitor PWA',
         short_name: 'TrafficMonitor',
         description: 'Offline-first traffic provider observation logger',
+        id: base,
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'standalone',
-        start_url: '/',
+        start_url: base,
+        scope: base,
         icons: [
           {
             src: '/favicon.svg',

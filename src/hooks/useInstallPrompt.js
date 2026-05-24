@@ -32,13 +32,21 @@ export function useInstallPrompt() {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
     window.addEventListener('appinstalled', handleInstalledStateChange)
-    media.addEventListener('change', handleInstalledStateChange)
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', handleInstalledStateChange)
+    } else if (typeof media.addListener === 'function') {
+      media.addListener(handleInstalledStateChange)
+    }
     handleInstalledStateChange()
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
       window.removeEventListener('appinstalled', handleInstalledStateChange)
-      media.removeEventListener('change', handleInstalledStateChange)
+      if (typeof media.removeEventListener === 'function') {
+        media.removeEventListener('change', handleInstalledStateChange)
+      } else if (typeof media.removeListener === 'function') {
+        media.removeListener(handleInstalledStateChange)
+      }
     }
   }, [])
 
@@ -65,10 +73,24 @@ export function useInstallPrompt() {
     return true
   }
 
+  function triggerInstallHelp() {
+    const message =
+      'Az install prompt jelenleg nem elérhető.\n\n' +
+      'Lehetséges okok:\n' +
+      '- A böngésző még nem adta ki a telepítési promptot\n' +
+      '- Nem HTTPS/domain környezetben fut az app\n' +
+      '- A platform nem támogatja a beforeinstallprompt eseményt\n\n' +
+      'Próbáld a böngésző menüjéből: Install app / Add to home screen.'
+
+    window.alert(message)
+    return true
+  }
+
   return {
     canInstall: Boolean(deferredPrompt) && !isInstalled,
     isInstalled,
     triggerInstall,
+    triggerInstallHelp,
     triggerUninstallHelp,
   }
 }

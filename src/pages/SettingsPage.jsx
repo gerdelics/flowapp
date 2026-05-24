@@ -21,7 +21,7 @@ export default function SettingsPage() {
     reload,
   } = useSettings()
   const geolocation = useGeolocation()
-  const { canInstall, isInstalled, triggerInstall, triggerUninstallHelp } = useInstallPrompt()
+  const { canInstall, isInstalled, triggerInstall, triggerInstallHelp, triggerUninstallHelp } = useInstallPrompt()
 
   const [nameInput, setNameInput] = useState('')
   const [csvNameInput, setCsvNameInput] = useState('')
@@ -128,8 +128,8 @@ export default function SettingsPage() {
           Sample interval: {settings.sampleIntervalSec}s
           <input
             type="range"
-            min={5}
-            max={300}
+            min={15}
+            max={61}
             value={settings.sampleIntervalSec}
             onChange={(e) => setSampleIntervalSec(Number(e.target.value))}
             className="mt-2 w-full"
@@ -180,24 +180,36 @@ export default function SettingsPage() {
             </span>
           </p>
 
-          {canInstall ? (
+          <div className="mt-2 flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={triggerInstall}
-              className="mt-2 rounded-md bg-emerald-500 px-3 py-1.5 text-sm font-semibold text-slate-950"
+              onClick={canInstall ? triggerInstall : triggerInstallHelp}
+              className={`rounded-md px-3 py-1.5 text-sm font-semibold ${
+                canInstall
+                  ? 'bg-emerald-500 text-slate-950'
+                  : 'bg-slate-700 text-slate-300'
+              }`}
             >
               Install app
             </button>
-          ) : null}
 
-          {isInstalled ? (
             <button
               type="button"
               onClick={triggerUninstallHelp}
-              className="mt-2 rounded-md bg-red-500 px-3 py-1.5 text-sm font-semibold text-white"
+              className={`rounded-md px-3 py-1.5 text-sm font-semibold ${
+                isInstalled
+                  ? 'bg-red-500 text-white'
+                  : 'bg-slate-700 text-slate-300'
+              }`}
             >
               Uninstall app
             </button>
+          </div>
+
+          {!canInstall && !isInstalled ? (
+            <p className="mt-2 text-xs text-slate-400">
+              A natív install prompt most nem érhető el, de a böngésző menüjéből telepíthető lehet.
+            </p>
           ) : null}
         </div>
       </section>
