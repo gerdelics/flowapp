@@ -13,13 +13,20 @@ export function useAutoRecord({ enabled, intervalSec, onTick }) {
 
   useEffect(() => {
     if (!normalizedIntervalSec) {
-      setSecondsLeft(0)
-      return
+      const resetTimer = setTimeout(() => {
+        setSecondsLeft(0)
+      }, 0)
+      return () => clearTimeout(resetTimer)
     }
 
     if (enabled) {
-      setSecondsLeft(normalizedIntervalSec)
+      const resetTimer = setTimeout(() => {
+        setSecondsLeft(normalizedIntervalSec)
+      }, 0)
+      return () => clearTimeout(resetTimer)
     }
+
+    return undefined
   }, [enabled, normalizedIntervalSec])
 
   useEffect(() => {
