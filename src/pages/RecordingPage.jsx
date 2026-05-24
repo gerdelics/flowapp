@@ -108,7 +108,7 @@ export default function RecordingPage() {
     if (typeof window === 'undefined') {
       return true
     }
-    return window.matchMedia('(min-width: 768px)').matches
+    return window.matchMedia('(min-width: 640px)').matches
   })
   const [togglingPause, setTogglingPause] = useState(false)
   const mapContainerRef = useRef(null)
@@ -148,7 +148,7 @@ export default function RecordingPage() {
       return undefined
     }
 
-    const media = window.matchMedia('(min-width: 768px)')
+    const media = window.matchMedia('(min-width: 640px)')
     const onChange = (event) => {
       setIsMdUp(event.matches)
     }
@@ -511,7 +511,7 @@ export default function RecordingPage() {
           <div className="min-h-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
             <div
               ref={mapContainerRef}
-              className="h-[40dvh] min-h-[260px] w-full md:h-full md:min-h-[320px]"
+              className="h-[40dvh] min-h-[260px] w-full sm:h-[42dvh] md:h-full md:min-h-[320px]"
             />
           </div>
         ) : null}
