@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { clearAllData, getAllEntries } from '../db'
 import { useGeolocation } from '../hooks/useGeolocation'
+import { useInstallPrompt } from '../hooks/useInstallPrompt'
 import { useSettings } from '../hooks/useSettings'
 import { exportLegacyCsv } from '../utils/csvExport'
 
@@ -20,6 +21,7 @@ export default function SettingsPage() {
     reload,
   } = useSettings()
   const geolocation = useGeolocation()
+  const { canInstall, triggerInstall } = useInstallPrompt()
 
   const [nameInput, setNameInput] = useState('')
   const [csvNameInput, setCsvNameInput] = useState('')
@@ -163,6 +165,19 @@ export default function SettingsPage() {
             Request GPS permission
           </button>
         </div>
+
+        {canInstall ? (
+          <div className="mt-4 rounded-md border border-emerald-600/40 bg-emerald-950/20 p-3">
+            <p className="text-sm text-emerald-200">PWA install is available on this device.</p>
+            <button
+              type="button"
+              onClick={triggerInstall}
+              className="mt-2 rounded-md bg-emerald-500 px-3 py-1.5 text-sm font-semibold text-slate-950"
+            >
+              Install app
+            </button>
+          </div>
+        ) : null}
       </section>
 
       <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
