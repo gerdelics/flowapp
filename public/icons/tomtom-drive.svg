@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="TomTom Drive">
+  <rect width="128" height="128" rx="24" fill="#7f1d1d"/>
+  <circle cx="64" cy="64" r="38" fill="#ef4444"/>
+  <circle cx="64" cy="64" r="22" fill="#111827"/>
+  <path d="M34 92c10-8 22-12 30-12s20 4 30 12" stroke="#fecaca" stroke-width="6" fill="none" stroke-linecap="round"/>
+  <text x="64" y="70" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#fef2f2" font-weight="700">TT</text>
+</svg>

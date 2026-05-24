@@ -1,0 +1,415 @@
+import Dexie from 'dexie'
+import { v4 as uuidv4 } from 'uuid'
+
+export const MAX_SYNC_ATTEMPTS = 5
+
+const DEFAULT_PROVIDERS = [
+  {
+    id: uuidv4(),
+    name: 'Google Maps',
+    csvName: 'Google',
+    active: true,
+    iconUrl: '/icons/google-maps.svg',
+  },
+  {
+    id: uuidv4(),
+    name: 'TomTom Drive',
+    csvName: 'TomTom',
+    active: true,
+    iconUrl: '/icons/tomtom-drive.svg',
+  },
+  {
+    id: uuidv4(),
+    name: 'HERE We Go',
+    csvName: 'HERE_WeGo',
+    active: true,
+    iconUrl: '/icons/here-wego.svg',
+  },
+  { id: uuidv4(), name: 'Waze', csvName: 'Waze', active: true, iconUrl: '/icons/waze.svg' },
+  {
+    id: uuidv4(),
+    name: 'Apple Maps',
+    csvName: 'Apple',
+    active: false,
+    iconUrl: '/icons/apple-maps.svg',
+  },
+]
+
+const DEFAULT_SETTINGS = {
+  id: 'singleton',
+  observerName: 'Observer',
+  sampleIntervalSec: 30,
+  providers: DEFAULT_PROVIDERS,
+  azureEndpointUrl: '',
+  azureApiKey: '',
+  manualBeepEnabled: true,
+}
+
+function withSettingsDefaults(settings) {
+  const base = settings || {}
+
+  const providers = (base.providers || []).map((provider) => {
+    const fallback = DEFAULT_PROVIDERS.find((item) => item.name === provider.name)
+    return {
+      ...provider,
+      iconUrl: provider.iconUrl || fallback?.iconUrl || '',
+    }
+  })
+
+  return {
+    ...DEFAULT_SETTINGS,
+    ...base,
+    providers,
+    manualBeepEnabled:
+      typeof base.manualBeepEnabled === 'boolean'
+        ? base.manualBeepEnabled
+        : DEFAULT_SETTINGS.manualBeepEnabled,
+  }
+}
+
+class TrafficMonitorDb extends Dexie {
+  constructor() {
+    super('trafficMonitorDb')
+    this.version(1).stores({
+      sessions: 'id, startTime, endTime',
+      entries: 'id, sessionId, timestamp, synced',
+      settings: 'id',
+    })
+
+    this.version(2)
+      .stores({
+        sessions: 'id, startTime, endTime',
+        entries:
+          'id, sessionId, timestamp, synced, syncStatus, syncAttempts, lastSyncAt',
+        settings: 'id',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('entries')
+          .toCollection()
+          .modify((entry) => {
+            const synced = Boolean(entry.synced)
+            entry.syncStatus = entry.syncStatus || (synced ? 'synced' : 'pending')
+            entry.syncAttempts = entry.syncAttempts || 0
+            entry.lastSyncError = entry.lastSyncError || null
+            entry.lastSyncAt = entry.lastSyncAt || null
+            entry.lastSyncAttemptAt = entry.lastSyncAttemptAt || null
+          })
+      })
+  }
+}
+
+export const db = new TrafficMonitorDb()
+
+export async function ensureSettings() {
+  const existing = await db.settings.get('singleton')
+  if (existing) {
+    const normalized = withSettingsDefaults(existing)
+    if (JSON.stringify(existing) !== JSON.stringify(normalized)) {
+      await db.settings.put(normalized)
+    }
+    return normalized
+  }
+
+  await db.settings.put(DEFAULT_SETTINGS)
+  return DEFAULT_SETTINGS
+}
+
+export async function getSettings() {
+  return ensureSettings()
+}
+
+export async function updateSettings(patch) {
+  const current = await ensureSettings()
+  const next = withSettingsDefaults({ ...current, ...patch, id: 'singleton' })
+  await db.settings.put(next)
+  return next
+}
+
+export async function startSession(name) {
+  const now = new Date().toISOString()
+  const session = {
+    id: uuidv4(),
+    name: name?.trim() || new Date().toLocaleString(),
+    startTime: now,
+    endTime: null,
+    pausedAt: null,
+    notes: '',
+    path: [],
+  }
+  await db.sessions.put(session)
+  return session
+}
+
+export async function setSessionPath(sessionId, path) {
+  const session = await db.sessions.get(sessionId)
+  if (!session) {
+    return null
+  }
+
+  const updated = {
+    ...session,
+    path: Array.isArray(path) ? path : [],
+  }
+  await db.sessions.put(updated)
+  return updated
+}
+
+export async function stopSession(sessionId) {
+  const session = await db.sessions.get(sessionId)
+  if (!session) {
+    return null
+  }
+
+  const updated = {
+    ...session,
+    endTime: new Date().toISOString(),
+    pausedAt: null,
+  }
+  await db.sessions.put(updated)
+  return updated
+}
+
+export async function pauseSession(sessionId) {
+  const session = await db.sessions.get(sessionId)
+  if (!session || session.endTime) {
+    return null
+  }
+
+  if (session.pausedAt) {
+    return session
+  }
+
+  const updated = {
+    ...session,
+    pausedAt: new Date().toISOString(),
+  }
+  await db.sessions.put(updated)
+  return updated
+}
+
+export async function resumeSession(sessionId) {
+  const session = await db.sessions.get(sessionId)
+  if (!session || session.endTime) {
+    return null
+  }
+
+  if (!session.pausedAt) {
+    return session
+  }
+
+  const updated = {
+    ...session,
+    pausedAt: null,
+  }
+  await db.sessions.put(updated)
+  return updated
+}
+
+export async function renameSession(sessionId, name) {
+  const session = await db.sessions.get(sessionId)
+  if (!session) {
+    return null
+  }
+
+  const trimmed = name?.trim()
+  if (!trimmed) {
+    return session
+  }
+
+  const updated = { ...session, name: trimmed }
+  await db.sessions.put(updated)
+  return updated
+}
+
+export async function getActiveSession() {
+  const sessions = await db.sessions.toArray()
+  return sessions.find((session) => session.endTime === null) || null
+}
+
+export async function addEntry({
+  sessionId,
+  timestamp,
+  location,
+  providers,
+  observerAssessment,
+}) {
+  const entry = {
+    id: uuidv4(),
+    sessionId,
+    timestamp: timestamp || new Date().toISOString(),
+    location: location || null,
+    providers,
+    observerAssessment,
+    synced: false,
+    syncStatus: 'pending',
+    syncAttempts: 0,
+    lastSyncError: null,
+    lastSyncAt: null,
+    lastSyncAttemptAt: null,
+  }
+  await db.entries.put(entry)
+  return entry
+}
+
+export async function listSessionsWithCounts() {
+  const sessions = await db.sessions.orderBy('startTime').reverse().toArray()
+  const entries = await db.entries.toArray()
+  const counts = entries.reduce((acc, entry) => {
+    const attempts = entry.syncAttempts || 0
+    const computedStatus = entry.syncStatus || (entry.synced ? 'synced' : 'pending')
+    const isDeadLetter = computedStatus === 'dead-letter' || attempts >= MAX_SYNC_ATTEMPTS
+
+    acc[entry.sessionId] = (acc[entry.sessionId] || 0) + 1
+    if (!entry.synced) {
+      acc[`${entry.sessionId}:unsynced`] =
+        (acc[`${entry.sessionId}:unsynced`] || 0) + 1
+    }
+    if (computedStatus === 'failed') {
+      acc[`${entry.sessionId}:failed`] = (acc[`${entry.sessionId}:failed`] || 0) + 1
+    }
+    if (isDeadLetter) {
+      acc[`${entry.sessionId}:dead`] = (acc[`${entry.sessionId}:dead`] || 0) + 1
+    }
+    return acc
+  }, {})
+
+  return sessions.map((session) => ({
+    ...session,
+    entryCount: counts[session.id] || 0,
+    unsyncedCount: counts[`${session.id}:unsynced`] || 0,
+    failedCount: counts[`${session.id}:failed`] || 0,
+    deadLetterCount: counts[`${session.id}:dead`] || 0,
+  }))
+}
+
+export async function getSessionById(sessionId) {
+  return db.sessions.get(sessionId)
+}
+
+export async function getEntriesBySessionId(sessionId) {
+  return db.entries.where('sessionId').equals(sessionId).sortBy('timestamp')
+}
+
+export async function getAllEntries() {
+  return db.entries.orderBy('timestamp').toArray()
+}
+
+export async function getUnsyncedEntries() {
+  return db.entries.where('synced').equals(false).toArray()
+}
+
+export async function getRetryableUnsyncedEntries() {
+  const entries = await getUnsyncedEntries()
+  return entries.filter((entry) => (entry.syncAttempts || 0) < MAX_SYNC_ATTEMPTS)
+}
+
+export async function getRetryableUnsyncedEntriesBySessionId(sessionId) {
+  const entries = await db.entries.where('sessionId').equals(sessionId).toArray()
+  return entries.filter(
+    (entry) => !entry.synced && (entry.syncAttempts || 0) < MAX_SYNC_ATTEMPTS,
+  )
+}
+
+export async function getDeadLetterEntries() {
+  const entries = await getUnsyncedEntries()
+  return entries.filter((entry) => (entry.syncAttempts || 0) >= MAX_SYNC_ATTEMPTS)
+}
+
+export async function getDeadLetterEntriesBySessionId(sessionId) {
+  const entries = await db.entries.where('sessionId').equals(sessionId).toArray()
+  return entries.filter((entry) => (entry.syncAttempts || 0) >= MAX_SYNC_ATTEMPTS)
+}
+
+export async function resetEntriesForRetry(entryIds) {
+  if (!entryIds?.length) {
+    return 0
+  }
+
+  let updated = 0
+  await db.transaction('rw', db.entries, async () => {
+    for (const id of entryIds) {
+      const entry = await db.entries.get(id)
+      if (!entry) {
+        continue
+      }
+
+      await db.entries.put({
+        ...entry,
+        synced: false,
+        syncStatus: 'pending',
+        syncAttempts: 0,
+        lastSyncError: null,
+      })
+      updated += 1
+    }
+  })
+
+  return updated
+}
+
+export async function markEntriesSynced(entryIds) {
+  if (!entryIds?.length) {
+    return
+  }
+
+  await db.transaction('rw', db.entries, async () => {
+    for (const id of entryIds) {
+      const entry = await db.entries.get(id)
+      if (entry) {
+        await db.entries.put({
+          ...entry,
+          synced: true,
+          syncStatus: 'synced',
+          lastSyncError: null,
+          lastSyncAt: new Date().toISOString(),
+          lastSyncAttemptAt: new Date().toISOString(),
+        })
+      }
+    }
+  })
+}
+
+export async function markEntriesSyncFailed(entryIds, errorMessage) {
+  if (!entryIds?.length) {
+    return
+  }
+
+  await db.transaction('rw', db.entries, async () => {
+    for (const id of entryIds) {
+      const entry = await db.entries.get(id)
+      if (!entry) {
+        continue
+      }
+
+      const nextAttempts = (entry.syncAttempts || 0) + 1
+      const deadLetter = nextAttempts >= MAX_SYNC_ATTEMPTS
+
+      await db.entries.put({
+        ...entry,
+        synced: false,
+        syncAttempts: nextAttempts,
+        syncStatus: deadLetter ? 'dead-letter' : 'failed',
+        lastSyncError: errorMessage || 'Unknown sync error',
+        lastSyncAttemptAt: new Date().toISOString(),
+      })
+    }
+  })
+}
+
+export async function deleteSession(sessionId) {
+  await db.transaction('rw', db.sessions, db.entries, async () => {
+    await db.sessions.delete(sessionId)
+    const entries = await db.entries.where('sessionId').equals(sessionId).toArray()
+    await Promise.all(entries.map((entry) => db.entries.delete(entry.id)))
+  })
+}
+
+export async function clearAllData() {
+  await db.transaction('rw', db.sessions, db.entries, db.settings, async () => {
+    await db.sessions.clear()
+    await db.entries.clear()
+    await db.settings.clear()
+  })
+  await ensureSettings()
+}
