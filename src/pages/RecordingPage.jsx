@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAutoRecord } from '../hooks/useAutoRecord'
 import { useGeolocation } from '../hooks/useGeolocation'
 import { useSession } from '../hooks/useSession'
@@ -22,6 +22,88 @@ const TRAFFIC_LEVELS = [
   },
   { key: 'heavy', label: 'HEAVY', className: 'bg-red-600 hover:bg-red-500' },
 ]
+
+const TOAST_LEVELS = {
+  free: { label: 'FREE', className: 'bg-emerald-600 text-white' },
+  medium: { label: 'MED', className: 'bg-amber-500 text-slate-950' },
+  heavy: { label: 'HEAVY', className: 'bg-red-600 text-white' },
+}
+
+function getToastLevel(level) {
+  return TOAST_LEVELS[level] || TOAST_LEVELS.medium
+}
+
+function RecordLevelRow({ name, levelKey, iconUrl }) {
+  const level = getToastLevel(levelKey)
+
+  return (
+    <li className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2 shadow-sm ${level.className}`}>
+      <div className="flex min-w-0 items-center gap-2">
+        {iconUrl ? (
+          <img src={iconUrl} alt="" className="h-6 w-6 rounded bg-white object-contain p-0.5" />
+        ) : null}
+        <span className="truncate text-sm font-semibold">{name}</span>
+      </div>
+
+      <span className="shrink-0 rounded-full bg-black/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide">
+        {level.label}
+      </span>
+    </li>
+  )
+}
+
+function RecordToast({ record, onDismiss }) {
+  if (!record) {
+    return null
+  }
+
+  const channelLabel = record.channel === 'auto' ? 'Automatic reporting' : 'Manual reporting'
+
+  return (
+    <div className="pointer-events-none fixed inset-x-3 top-3 z-50 flex justify-center md:inset-x-auto md:right-4 md:justify-end">
+      <div className="pointer-events-auto w-full max-w-2xl rounded-2xl border border-cyan-500/30 bg-slate-950/95 p-4 shadow-2xl shadow-slate-950/60 backdrop-blur">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300">
+              {channelLabel}
+            </p>
+            <p className="mt-1 text-base font-bold text-slate-50">New record saved</p>
+            <p className="mt-1 text-xs text-slate-400">
+              {new Date(record.timestamp).toLocaleString()}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-300 transition hover:border-slate-500 hover:text-white"
+          >
+            Dismiss
+          </button>
+        </div>
+
+        <ul className="mt-4 flex flex-col gap-2">
+          <RecordLevelRow name="Observer" levelKey={record.observerAssessment} />
+
+          {(record.providers || []).length ? (
+            record.providers.map((provider) => (
+              <RecordLevelRow
+                key={`${provider.name}-${provider.level}`}
+                name={provider.name}
+                levelKey={provider.level}
+                iconUrl={provider.iconUrl}
+              />
+            ))
+          ) : (
+            <li className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-400">
+              No active providers were selected
+            </li>
+          )}
+        </ul>
+      </div>
+    </div>
+  )
+}
 
 function TrafficCard({ title, iconUrl, value, onSelect }) {
   return (
@@ -120,6 +202,8 @@ export default function RecordingPage() {
     return window.matchMedia('(min-width: 640px)').matches
   })
   const [togglingPause, setTogglingPause] = useState(false)
+  const [recordToast, setRecordToast] = useState(null)
+  const recordToastTimerRef = useRef(null)
   const manualBeepEnabled = settings?.manualBeepEnabled ?? true
 
   const activeProviders = useMemo(
@@ -129,11 +213,51 @@ export default function RecordingPage() {
 
   const session = useSession(activeProviders)
 
+  const dismissRecordToast = useCallback(() => {
+    if (recordToastTimerRef.current) {
+      clearTimeout(recordToastTimerRef.current)
+      recordToastTimerRef.current = null
+    }
+
+    setRecordToast(null)
+  }, [])
+
+  const showRecordToast = useCallback((savedRecord, channel) => {
+    if (!savedRecord) {
+      return
+    }
+
+    if (recordToastTimerRef.current) {
+      clearTimeout(recordToastTimerRef.current)
+    }
+
+    setRecordToast({
+      channel,
+      timestamp: savedRecord.timestamp,
+      observerAssessment: savedRecord.observerAssessment,
+      providers: Array.isArray(savedRecord.providers) ? savedRecord.providers : [],
+    })
+
+    recordToastTimerRef.current = window.setTimeout(() => {
+      setRecordToast(null)
+      recordToastTimerRef.current = null
+    }, 5500)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (recordToastTimerRef.current) {
+        clearTimeout(recordToastTimerRef.current)
+      }
+    }
+  }, [])
+
   const autoRecord = useAutoRecord({
     enabled: autoEnabled && !!session.session && !session.session?.pausedAt,
     intervalSec: settings?.sampleIntervalSec || 30,
     onTick: async () => {
-      await session.recordNow(geolocation.location)
+      const saved = await session.recordNow(geolocation.location)
+      showRecordToast(saved, 'auto')
       setManualSecondsLeft(settings?.sampleIntervalSec || 30)
     },
   })
@@ -337,7 +461,8 @@ export default function RecordingPage() {
     const intervalSec = settings?.sampleIntervalSec || 30
     setManualSecondsLeft(intervalSec)
     manualExpiryBeepedRef.current = false
-    await session.recordNow(geolocation.location)
+    const saved = await session.recordNow(geolocation.location)
+    showRecordToast(saved, 'manual')
   }
 
   const sessionActive = Boolean(session.session)
@@ -384,7 +509,10 @@ export default function RecordingPage() {
   }
 
   return (
-    <div className="grid min-h-[calc(100dvh-9.5rem)] gap-3 md:h-[calc(100dvh-9.5rem)] md:min-h-[620px] md:grid-rows-[2fr_1fr]">
+    <>
+      <RecordToast record={recordToast} onDismiss={dismissRecordToast} />
+
+      <div className="grid min-h-[calc(100dvh-9.5rem)] gap-3 md:h-[calc(100dvh-9.5rem)] md:min-h-[620px] md:grid-rows-[2fr_1fr]">
       <section className="grid min-h-0 gap-3 md:grid-cols-[2fr_1fr]">
         {isMdUp ? (
           <div className="min-h-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
@@ -533,6 +661,7 @@ export default function RecordingPage() {
           ))}
         </div>
       </section>
-    </div>
+      </div>
+    </>
   )
 }
