@@ -15,6 +15,7 @@ export default function SettingsPage() {
     addProvider,
     deleteProvider,
     updateProviderIcon,
+    reorderProviders,
     setAzureConfig,
     reload,
   } = useSettings()
@@ -22,6 +23,9 @@ export default function SettingsPage() {
 
   const [nameInput, setNameInput] = useState('')
   const [csvNameInput, setCsvNameInput] = useState('')
+  const [draggedProviderId, setDraggedProviderId] = useState(null)
+  const [dropTargetProviderId, setDropTargetProviderId] = useState(null)
+  const [dropTargetPosition, setDropTargetPosition] = useState('before')
 
   if (loading || !settings) {
     return <p>Loading settings…</p>
@@ -63,6 +67,45 @@ export default function SettingsPage() {
       await updateProviderIcon(providerId, typeof reader.result === 'string' ? reader.result : '')
     }
     reader.readAsDataURL(file)
+  }
+
+  function updateDropPreview(providerId, position) {
+    setDropTargetProviderId((currentProviderId) =>
+      currentProviderId === providerId ? currentProviderId : providerId,
+    )
+    setDropTargetPosition((currentPosition) =>
+      currentPosition === position ? currentPosition : position,
+    )
+  }
+
+  async function handleDropProvider(targetProviderId, insertPosition = 'before') {
+    if (!draggedProviderId || draggedProviderId === targetProviderId) {
+      setDraggedProviderId(null)
+      setDropTargetProviderId(null)
+      setDropTargetPosition('before')
+      return
+    }
+
+    const fromIndex = settings.providers.findIndex((provider) => provider.id === draggedProviderId)
+    const toIndex = settings.providers.findIndex((provider) => provider.id === targetProviderId)
+
+    if (fromIndex < 0 || toIndex < 0) {
+      setDraggedProviderId(null)
+      setDropTargetProviderId(null)
+      setDropTargetPosition('before')
+      return
+    }
+
+    let insertIndex = insertPosition === 'after' ? toIndex + 1 : toIndex
+    if (fromIndex < insertIndex) {
+      insertIndex -= 1
+    }
+
+    await reorderProviders(fromIndex, insertIndex)
+
+    setDraggedProviderId(null)
+    setDropTargetProviderId(null)
+    setDropTargetPosition('before')
   }
 
   return (
@@ -124,61 +167,132 @@ export default function SettingsPage() {
 
       <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
         <h2 className="text-xl font-semibold">Providers</h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Drag and drop a provider to change its order.
+        </p>
         <div className="mt-3 space-y-2">
           {settings.providers.map((provider) => (
-            <div
-              key={provider.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-700 bg-slate-800 p-2"
-            >
-              <div>
-                <div className="flex items-center gap-2">
-                  {provider.iconUrl ? (
-                    <img
-                      src={provider.iconUrl}
-                      alt=""
-                      className="h-8 w-8 rounded bg-white object-contain p-1"
-                    />
-                  ) : (
-                    <div className="h-8 w-8 rounded bg-slate-700" />
-                  )}
-                  <p className="font-medium">{provider.name}</p>
+            <div key={provider.id} className="space-y-2">
+              {draggedProviderId &&
+              dropTargetProviderId === provider.id &&
+              dropTargetPosition === 'before' ? (
+                <div
+                  className="mx-1 h-3 rounded-lg border border-dashed border-cyan-400/70 bg-cyan-400/10 shadow-inner shadow-cyan-400/10 transition-all duration-100"
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = 'move'
+                    updateDropPreview(provider.id, 'before')
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    void handleDropProvider(provider.id, 'before')
+                  }}
+                />
+              ) : null}
+
+              <div
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.effectAllowed = 'move'
+                  e.dataTransfer.setData('text/plain', provider.id)
+                  setDraggedProviderId(provider.id)
+                }}
+                onDragEnd={() => {
+                  setDraggedProviderId(null)
+                  setDropTargetProviderId(null)
+                  setDropTargetPosition('before')
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
+
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const shouldDropAfter = e.clientY > rect.top + rect.height / 2
+
+                  updateDropPreview(provider.id, shouldDropAfter ? 'after' : 'before')
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  void handleDropProvider(provider.id, dropTargetPosition)
+                }}
+                className={`flex flex-wrap items-center justify-between gap-2 rounded-md border bg-slate-800 p-2 transition duration-150 ease-out ${
+                  draggedProviderId === provider.id
+                    ? 'border-cyan-400/90 bg-slate-700/90 shadow-xl shadow-cyan-400/15 ring-2 ring-cyan-400/25 scale-[1.01]'
+                    : dropTargetProviderId === provider.id
+                      ? 'border-cyan-400 ring-2 ring-cyan-400/30'
+                      : 'border-slate-700'
+                } cursor-grab select-none active:cursor-grabbing touch-none`}
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="select-none text-slate-500" aria-hidden="true">
+                      ⋮⋮
+                    </span>
+                    {provider.iconUrl ? (
+                      <img
+                        src={provider.iconUrl}
+                        alt=""
+                        className="h-8 w-8 rounded bg-white object-contain p-1"
+                      />
+                    ) : (
+                      <div className="h-8 w-8 rounded bg-slate-700" />
+                    )}
+                    <p className="font-medium">{provider.name}</p>
+                  </div>
+                  <p className="text-xs text-slate-400">CSV: {provider.csvName}</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <label className="cursor-pointer rounded bg-slate-700 px-2 py-1 text-xs">
+                      Upload icon
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleProviderIconUpload(provider.id, e.target.files?.[0])}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => updateProviderIcon(provider.id, '')}
+                      className="rounded bg-slate-700 px-2 py-1 text-xs"
+                    >
+                      Remove icon
+                    </button>
+                  </div>
                 </div>
-                <p className="text-xs text-slate-400">CSV: {provider.csvName}</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <label className="cursor-pointer rounded bg-slate-700 px-2 py-1 text-xs">
-                    Upload icon
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => handleProviderIconUpload(provider.id, e.target.files?.[0])}
-                    />
-                  </label>
+                <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => updateProviderIcon(provider.id, '')}
-                    className="rounded bg-slate-700 px-2 py-1 text-xs"
+                    onClick={() => toggleProvider(provider.id)}
+                    className="rounded-md bg-slate-700 px-3 py-1.5 text-sm"
                   >
-                    Remove icon
+                    {provider.active ? 'Active' : 'Inactive'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteProvider(provider.id)}
+                    className="rounded-md bg-red-600 px-3 py-1.5 text-sm"
+                  >
+                    Delete
                   </button>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => toggleProvider(provider.id)}
-                  className="rounded-md bg-slate-700 px-3 py-1.5 text-sm"
-                >
-                  {provider.active ? 'Active' : 'Inactive'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => deleteProvider(provider.id)}
-                  className="rounded-md bg-red-600 px-3 py-1.5 text-sm"
-                >
-                  Delete
-                </button>
-              </div>
+
+              {draggedProviderId &&
+              dropTargetProviderId === provider.id &&
+              dropTargetPosition === 'after' ? (
+                <div
+                  className="mx-1 h-3 rounded-lg border border-dashed border-cyan-400/70 bg-cyan-400/10 shadow-inner shadow-cyan-400/10 transition-all duration-100"
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = 'move'
+                    updateDropPreview(provider.id, 'after')
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    void handleDropProvider(provider.id, 'after')
+                  }}
+                />
+              ) : null}
             </div>
           ))}
         </div>
