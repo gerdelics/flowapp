@@ -16,12 +16,55 @@ import { useSettings } from '../hooks/useSettings'
 import { syncEntriesToAzure } from '../utils/azureSync'
 import { exportLegacyCsv } from '../utils/csvExport'
 
+const MAP_TILE_SOURCES = [
+  {
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenStreetMap contributors',
+  },
+  {
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+    subdomains: 'abcd',
+  },
+]
+
 function mapProviderLevels(entry) {
   const map = {}
   entry.providers.forEach((provider) => {
     map[provider.name] = provider.level
   })
   return map
+}
+
+function addTileLayerWithFallback(map) {
+  let sourceIndex = 0
+  let tileErrorCount = 0
+
+  const mountLayer = () => {
+    const source = MAP_TILE_SOURCES[sourceIndex]
+    const layer = L.tileLayer(source.url, {
+      maxZoom: 19,
+      attribution: source.attribution,
+      subdomains: source.subdomains,
+      crossOrigin: true,
+    })
+
+    layer.on('tileerror', () => {
+      tileErrorCount += 1
+      if (tileErrorCount < 4 || sourceIndex >= MAP_TILE_SOURCES.length - 1) {
+        return
+      }
+
+      map.removeLayer(layer)
+      sourceIndex += 1
+      tileErrorCount = 0
+      mountLayer()
+    })
+
+    layer.addTo(map)
+  }
+
+  mountLayer()
 }
 
 export default function SessionDetailPage() {
@@ -72,14 +115,16 @@ export default function SessionDetailPage() {
     }
 
     const center = [sessionPath[0].lat, sessionPath[0].lon]
-    const map = L.map(mapContainerRef.current, {
+    const container = mapContainerRef.current
+    if (container._leaflet_id) {
+      delete container._leaflet_id
+    }
+
+    const map = L.map(container, {
       zoomControl: true,
     }).setView(center, 15)
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors',
-    }).addTo(map)
+    addTileLayerWithFallback(map)
 
     const polylinePoints = sessionPath.map((point) => [point.lat, point.lon])
     const polyline = L.polyline(polylinePoints, {
@@ -109,6 +154,7 @@ export default function SessionDetailPage() {
       .bindPopup('End')
 
     map.fitBounds(polyline.getBounds(), { padding: [24, 24] })
+    map.invalidateSize()
     leafletMapRef.current = map
 
     return () => {

@@ -5,6 +5,18 @@ import { useGeolocation } from '../hooks/useGeolocation'
 import { useSession } from '../hooks/useSession'
 import { useSettings } from '../hooks/useSettings'
 
+const MAP_TILE_SOURCES = [
+  {
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenStreetMap contributors',
+  },
+  {
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+    subdomains: 'abcd',
+  },
+]
+
 const TRAFFIC_LEVELS = [
   { key: 'free', label: 'FREE', className: 'bg-emerald-600 hover:bg-emerald-500' },
   {
@@ -90,6 +102,40 @@ function playBeep() {
 
   oscillator.start()
   oscillator.stop(context.currentTime + 0.12)
+}
+
+function addTileLayerWithFallback(map) {
+  let sourceIndex = 0
+  let tileErrorCount = 0
+  let activeLayer = null
+
+  const mountLayer = () => {
+    const source = MAP_TILE_SOURCES[sourceIndex]
+    const nextLayer = L.tileLayer(source.url, {
+      maxZoom: 19,
+      attribution: source.attribution,
+      subdomains: source.subdomains,
+      crossOrigin: true,
+    })
+
+    nextLayer.on('tileerror', () => {
+      tileErrorCount += 1
+      if (tileErrorCount < 4 || sourceIndex >= MAP_TILE_SOURCES.length - 1) {
+        return
+      }
+
+      map.removeLayer(nextLayer)
+      sourceIndex += 1
+      tileErrorCount = 0
+      mountLayer()
+    })
+
+    nextLayer.addTo(map)
+    activeLayer = nextLayer
+  }
+
+  mountLayer()
+  return () => activeLayer
 }
 
 export default function RecordingPage() {
@@ -233,13 +279,10 @@ export default function RecordingPage() {
       zoomControl: true,
     }).setView([47.4979, 19.0402], 14)
 
-    const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors',
-    }).addTo(map)
+    const getActiveLayer = addTileLayerWithFallback(map)
 
     leafletMapRef.current = map
-    leafletTileLayerRef.current = tileLayer
+    leafletTileLayerRef.current = getActiveLayer()
 
     const resizeSoon = setTimeout(() => {
       leafletMapRef.current?.invalidateSize()
