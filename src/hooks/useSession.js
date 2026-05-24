@@ -7,6 +7,7 @@ import {
   pauseSession,
   renameSession,
   resumeSession,
+  setSessionPlannedRoute,
   setSessionPath,
   startSession,
   stopSession,
@@ -106,6 +107,22 @@ export function useSession(activeProviders) {
     [refreshSessions, session],
   )
 
+  const assignRouteToActiveSession = useCallback(
+    async (routeId) => {
+      if (!session) {
+        return null
+      }
+
+      const updated = await setSessionPlannedRoute(session.id, routeId)
+      if (updated) {
+        setSession(updated)
+        await refreshSessions()
+      }
+      return updated
+    },
+    [refreshSessions, session],
+  )
+
   const pauseActiveSession = useCallback(async () => {
     if (!session) {
       return null
@@ -180,6 +197,7 @@ export function useSession(activeProviders) {
     pauseActiveSession,
     resumeActiveSession,
     renameActiveSession,
+    assignRouteToActiveSession,
     saveActiveSessionPath,
     updateProviderLevel,
     recordNow,

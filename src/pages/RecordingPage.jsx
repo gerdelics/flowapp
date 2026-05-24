@@ -247,10 +247,16 @@ export default function RecordingPage() {
     if (!id) {
       setOverlayPoints([])
       setRoutePickerOpen(false)
+      if (session.session) {
+        session.assignRouteToActiveSession(null)
+      }
       return
     }
     const route = savedRoutes.find((r) => r.id === id)
     setOverlayPoints(route?.points ?? [])
+    if (session.session) {
+      session.assignRouteToActiveSession(id)
+    }
     setRoutePickerOpen(false)
   }
 
@@ -258,6 +264,9 @@ export default function RecordingPage() {
     setSelectedOverlayRouteId('')
     setOverlayPoints([])
     setRouteCityFilter('')
+    if (session.session) {
+      session.assignRouteToActiveSession(null)
+    }
   }
 
   const dismissRecordToast = useCallback(() => {
@@ -345,10 +354,28 @@ export default function RecordingPage() {
     }
 
     pathBufferRef.current = sanitizePath(session.session.path)
+
+    const plannedRoutePoints = Array.isArray(session.session.plannedRoutePoints)
+      ? session.session.plannedRoutePoints
+      : []
+
+    const syncPlannedRouteState = setTimeout(() => {
+      if (plannedRoutePoints.length > 0) {
+        setSelectedOverlayRouteId(session.session.plannedRouteId || '')
+        setOverlayPoints(plannedRoutePoints)
+      } else {
+        setSelectedOverlayRouteId('')
+        setOverlayPoints([])
+      }
+    }, 0)
+
     const bump = setTimeout(() => {
       setLivePathPoints([...pathBufferRef.current])
     }, 0)
-    return () => clearTimeout(bump)
+    return () => {
+      clearTimeout(syncPlannedRouteState)
+      clearTimeout(bump)
+    }
   }, [session.session])
 
   useEffect(() => {
@@ -415,6 +442,9 @@ export default function RecordingPage() {
     setStartingSession(true)
     try {
       const createdSession = await session.beginSession(sessionNameDraft)
+      if (selectedOverlayRouteId && createdSession?.id) {
+        await session.assignRouteToActiveSession(selectedOverlayRouteId)
+      }
       if (createdSession?.name) {
         setSessionNameDraft(createdSession.name)
       }

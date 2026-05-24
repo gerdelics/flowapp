@@ -309,6 +309,51 @@ export async function renameSession(sessionId, name) {
   return updated
 }
 
+function normalizePlannedRoutePoints(points) {
+  if (!Array.isArray(points)) {
+    return []
+  }
+
+  return points.filter(
+    (point) => typeof point?.lat === 'number' && typeof point?.lon === 'number',
+  )
+}
+
+export async function setSessionPlannedRoute(sessionId, routeId) {
+  const session = await db.sessions.get(sessionId)
+  if (!session) {
+    return null
+  }
+
+  if (!routeId) {
+    const cleared = {
+      ...session,
+      plannedRouteId: null,
+      plannedRouteName: null,
+      plannedRouteCity: null,
+      plannedRoutePoints: [],
+    }
+    await db.sessions.put(cleared)
+    return cleared
+  }
+
+  const route = await db.routes.get(routeId)
+  if (!route) {
+    return session
+  }
+
+  const updated = {
+    ...session,
+    plannedRouteId: route.id,
+    plannedRouteName: route.name || null,
+    plannedRouteCity: route.city || null,
+    plannedRoutePoints: normalizePlannedRoutePoints(route.points),
+  }
+
+  await db.sessions.put(updated)
+  return updated
+}
+
 export async function getActiveSession() {
   const sessions = await db.sessions.toArray()
   return sessions.find((session) => session.endTime === null) || null

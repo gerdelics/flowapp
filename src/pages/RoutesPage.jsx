@@ -180,6 +180,11 @@ export default function RoutesPage() {
     await loadRoutes()
   }
 
+  function closeAddModal() {
+    setAddModalOpen(false)
+    setGpxError('')
+  }
+
   function openEdit(route) {
     setEditingRouteId(route.id)
     setEditCity(route.city || '')
@@ -233,12 +238,27 @@ export default function RoutesPage() {
     }
   }
 
+  async function handleDeleteEditingRoute() {
+    if (!editingRouteId) {
+      return
+    }
+
+    const confirmed = window.confirm('Biztosan törlöd ezt az útvonalat?')
+    if (!confirmed) {
+      return
+    }
+
+    await handleDelete(editingRouteId)
+    cancelEdit()
+  }
+
   function handleCardClick(route) {
     setSelectedRoute((prev) => (prev?.id === route.id ? null : route))
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-[1fr_1.5fr]">
+    <>
+      <div className="grid gap-6 md:grid-cols-[1fr_1.5fr]">
       {/* Left column: form + route list */}
       <div className="flex flex-col gap-6">
         <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
@@ -307,6 +327,14 @@ export default function RoutesPage() {
                   className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-300 hover:border-slate-500 hover:text-slate-100"
                 >
                   Mégse
+                </button>
+                <button
+                  type="button"
+                  disabled={editSaving}
+                  onClick={handleDeleteEditingRoute}
+                  className="rounded-lg border border-red-500/50 px-3 py-2 text-sm text-red-300 hover:border-red-400 hover:text-red-200"
+                >
+                  Útvonal törlése
                 </button>
               </div>
             </div>
@@ -387,81 +415,85 @@ export default function RoutesPage() {
         )}
       </div>
 
+      </div>
+
       {addModalOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center"
-          onClick={() => setAddModalOpen(false)}
+          className="fixed inset-0 z-[80] bg-black/70 p-3 sm:p-6"
+          onClick={closeAddModal}
         >
-          <section
-            className="w-full max-w-md rounded-t-2xl border border-slate-700 bg-slate-900 p-4 sm:rounded-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-100">Új útvonal hozzáadása</h3>
-              <button
-                type="button"
-                onClick={() => setAddModalOpen(false)}
-                className="text-sm text-slate-400 hover:text-slate-100"
-              >
-                Bezárás
-              </button>
-            </div>
-
-            <form onSubmit={handleSave} className="flex flex-col gap-3">
-              <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Város
-                </label>
-                <input
-                  type="text"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder="pl. Budapest"
-                  className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
-                  required
-                />
+          <div className="flex min-h-full items-end justify-center sm:items-center">
+            <section
+              className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-base font-bold text-slate-100">Új útvonal hozzáadása</h3>
+                <button
+                  type="button"
+                  onClick={closeAddModal}
+                  className="text-sm text-slate-400 hover:text-slate-100"
+                >
+                  Bezárás
+                </button>
               </div>
 
-              <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Útvonal neve
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="pl. Belváros körút"
-                  className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
-                  required
-                />
-              </div>
+              <form onSubmit={handleSave} className="flex flex-col gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Város
+                  </label>
+                  <input
+                    type="text"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="pl. Budapest"
+                    className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
+                    required
+                  />
+                </div>
 
-              <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  GPX fájl
-                </label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".gpx,application/gpx+xml,application/xml,text/xml"
-                  onChange={handleFileChange}
-                  className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-300 file:mr-3 file:rounded file:border-0 file:bg-slate-700 file:px-2 file:py-1 file:text-xs file:font-semibold file:text-slate-200"
-                  required
-                />
-                {gpxError ? <p className="mt-1 text-xs text-red-400">{gpxError}</p> : null}
-              </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Útvonal neve
+                  </label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="pl. Belváros körút"
+                    className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
+                    required
+                  />
+                </div>
 
-              <button
-                type="submit"
-                disabled={saving || !city.trim() || !name.trim() || !gpxFile}
-                className="min-h-10 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:opacity-50"
-              >
-                {saving ? 'Mentés…' : 'Útvonal mentése'}
-              </button>
-            </form>
-          </section>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    GPX fájl
+                  </label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".gpx,application/gpx+xml,application/xml,text/xml"
+                    onChange={handleFileChange}
+                    className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-300 file:mr-3 file:rounded file:border-0 file:bg-slate-700 file:px-2 file:py-1 file:text-xs file:font-semibold file:text-slate-200"
+                    required
+                  />
+                  {gpxError ? <p className="mt-1 text-xs text-red-400">{gpxError}</p> : null}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={saving || !city.trim() || !name.trim() || !gpxFile}
+                  className="min-h-10 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:opacity-50"
+                >
+                  {saving ? 'Mentés…' : 'Útvonal mentése'}
+                </button>
+              </form>
+            </section>
+          </div>
         </div>
       ) : null}
-    </div>
+    </>
   )
 }
