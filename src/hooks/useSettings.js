@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react'
 import { ensureSettings, updateSettings } from '../db'
 
+function moveItem(items, fromIndex, toIndex) {
+  if (fromIndex === toIndex) {
+    return items
+  }
+
+  const next = [...items]
+  const [item] = next.splice(fromIndex, 1)
+  next.splice(toIndex, 0, item)
+  return next
+}
+
 export function useSettings() {
   const [settings, setSettings] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -86,6 +97,24 @@ export function useSettings() {
     return patchSettings({ providers: nextProviders })
   }
 
+  async function reorderProviders(fromIndex, toIndex) {
+    if (!settings?.providers?.length) {
+      return settings
+    }
+
+    if (
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= settings.providers.length ||
+      toIndex >= settings.providers.length ||
+      fromIndex === toIndex
+    ) {
+      return settings
+    }
+
+    return patchSettings({ providers: moveItem(settings.providers, fromIndex, toIndex) })
+  }
+
   return {
     settings,
     loading,
@@ -97,6 +126,7 @@ export function useSettings() {
     setAzureConfig,
     setManualBeepEnabled,
     updateProviderIcon,
+    reorderProviders,
     reload: async () => setSettings(await ensureSettings()),
   }
 }
