@@ -11,9 +11,8 @@ const MAP_TILE_SOURCES = [
     attribution: '&copy; OpenStreetMap contributors',
   },
   {
-    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    url: 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-    subdomains: 'abcd',
   },
 ]
 
@@ -114,7 +113,6 @@ function addTileLayerWithFallback(map) {
     const nextLayer = L.tileLayer(source.url, {
       maxZoom: 19,
       attribution: source.attribution,
-      subdomains: source.subdomains,
       crossOrigin: true,
     })
 
