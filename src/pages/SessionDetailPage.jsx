@@ -26,8 +26,7 @@ import {
   getSessionAverageSpeedKmh,
   getSessionPathDistanceKm,
 } from '../utils/sessionMetrics'
-import { TrafficLevelBadge } from '../components'
-import { RoutePickerModal } from '../components'
+import { RoutePickerModal, SyncActionButtons, TrafficLevelBadge } from '../components'
 import RouteMap from '../components/RouteMap'
 
 function mapProviderLevels(entry) {
@@ -225,29 +224,20 @@ export default function SessionDetailPage() {
           >
             Export JSON
           </button>
-          <button
-            type="button"
-            disabled={syncing || !canSync}
-            onClick={handleSync}
-            className="w-full rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold disabled:opacity-50 sm:w-auto"
-          >
-            {syncing ? 'Syncing…' : canSync ? 'Sync to Azure' : 'Sync unavailable'}
-          </button>
-          <button
-            type="button"
-            onClick={handleRetryDeadLetters}
-            className="w-full rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-950 sm:w-auto"
-          >
-            Retry dead-letter
-          </button>
-          <button
-            type="button"
-            disabled={syncing || !canSync}
-            onClick={handleRetryAndSyncNow}
-            className="w-full rounded-md bg-fuchsia-600 px-3 py-2 text-sm font-semibold disabled:opacity-50 sm:w-auto"
-          >
-            {syncing ? 'Retry+Sync…' : canSync ? 'Retry + Sync now' : 'Sync unavailable'}
-          </button>
+          <SyncActionButtons
+            syncing={syncing}
+            canSync={canSync}
+            onRetryDeadLetters={handleRetryDeadLetters}
+            onRetryAndSync={handleRetryAndSyncNow}
+            onSync={handleSync}
+            retryLabel="Retry dead-letter"
+            retryAndSyncLabel="Retry + Sync now"
+            retryAndSyncBusyLabel="Retry+Sync…"
+            syncLabel="Sync to Azure"
+            syncBusyLabel="Syncing…"
+            className="contents"
+            buttonClassName="w-full sm:w-auto"
+          />
           <button
             type="button"
             disabled={sessionPath.length === 0 && plannedRoutePoints.length === 0}

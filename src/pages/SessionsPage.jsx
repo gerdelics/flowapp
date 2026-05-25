@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { SyncActionButtons } from '../components'
 import SessionCard from '../components/SessionCard'
 import {
   deleteSession,
@@ -266,29 +267,18 @@ export default function SessionsPage() {
           >
             {importingArchive ? 'Importing…' : 'Import session JSON'}
           </button>
-          <button
-            type="button"
-            onClick={handleRetryDeadLettersAll}
-            className="rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-950"
-          >
-            Retry dead-letter (all)
-          </button>
-          <button
-            type="button"
-            disabled={syncingSessionId === 'all' || !canSync}
-            onClick={handleRetryAndSyncAll}
-            className="rounded-md bg-fuchsia-600 px-3 py-2 text-sm font-semibold disabled:opacity-50"
-          >
-            {syncingSessionId === 'all' ? 'Retry+Sync all…' : 'Retry + Sync now (all)'}
-          </button>
-          <button
-            type="button"
-            disabled={syncingSessionId === 'all' || !canSync}
-            onClick={handleSyncAll}
-            className="rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold disabled:opacity-50"
-          >
-            {syncingSessionId === 'all' ? 'Syncing all…' : 'Sync all unsynced'}
-          </button>
+          <SyncActionButtons
+            syncing={syncingSessionId === 'all'}
+            canSync={canSync}
+            onRetryDeadLetters={handleRetryDeadLettersAll}
+            onRetryAndSync={handleRetryAndSyncAll}
+            onSync={handleSyncAll}
+            retryLabel="Retry dead-letter (all)"
+            retryAndSyncLabel="Retry + Sync now (all)"
+            retryAndSyncBusyLabel="Retry+Sync all…"
+            syncLabel="Sync all unsynced"
+            syncBusyLabel="Syncing all…"
+          />
         </div>
       </div>
       <input
