@@ -26,6 +26,8 @@ import {
   getSessionAverageSpeedKmh,
   getSessionPathDistanceKm,
 } from '../utils/sessionMetrics'
+import { TrafficLevelBadge } from '../components'
+import { RoutePickerModal } from '../components'
 import RouteMap from '../components/RouteMap'
 
 function mapProviderLevels(entry) {
@@ -35,36 +37,6 @@ function mapProviderLevels(entry) {
   })
   return map
 }
-
-const TRAFFIC_BADGES = {
-  free: {
-    label: 'FREEFLOW',
-    className: 'bg-emerald-600 text-white',
-  },
-  medium: {
-    label: 'MEDIUM',
-    className: 'bg-amber-500 text-slate-950',
-  },
-  heavy: {
-    label: 'HIGH',
-    className: 'bg-red-600 text-white',
-  },
-}
-
-function TrafficBadge({ level }) {
-  const badge = TRAFFIC_BADGES[level] || null
-
-  if (!badge) {
-    return <span className="text-slate-400">—</span>
-  }
-
-  return (
-    <span className={`inline-flex min-w-20 justify-center rounded-full px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${badge.className}`}>
-      {badge.label}
-    </span>
-  )
-}
-
 
 export default function SessionDetailPage() {
   const { id } = useParams()
@@ -132,12 +104,6 @@ export default function SessionDetailPage() {
     }
     return savedRoutes.filter((route) => route.city === routeCityFilter)
   }, [savedRoutes, routeCityFilter])
-
-  useEffect(() => {
-    if (!routePickerOpen) {
-      setRouteCityComboboxOpen(false)
-    }
-  }, [routePickerOpen])
 
   if (!session) {
     return <p>Loading session…</p>
@@ -232,6 +198,11 @@ export default function SessionDetailPage() {
 
   function handleOpenRoutePicker() {
     setRoutePickerOpen(true)
+    setRouteCityComboboxOpen(false)
+  }
+
+  function handleCloseRoutePicker() {
+    setRoutePickerOpen(false)
     setRouteCityComboboxOpen(false)
   }
 
@@ -362,127 +333,20 @@ export default function SessionDetailPage() {
         </div>
       ) : null}
 
-      {routePickerOpen ? (
-        <div className="fixed inset-0 z-[2000] flex flex-col bg-slate-950">
-          <div className="border-b border-slate-800 bg-slate-900/95" onClick={(e) => e.stopPropagation()}>
-            <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
-              <button
-                type="button"
-                onClick={() => setRoutePickerOpen(false)}
-                className="rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-100 hover:border-slate-500 sm:px-3 sm:py-2 sm:text-sm"
-              >
-                Back
-              </button>
-
-              <div className="min-w-0 text-center">
-                <p className="text-sm font-bold text-slate-100">Select route</p>
-                <p className="text-xs text-slate-400">Choose a city and then a route to assign.</p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setRoutePickerOpen(false)}
-                className="rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-100 hover:border-slate-500 sm:px-3 sm:py-2 sm:text-sm"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-
-          <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-4 py-4 sm:px-6">
-            <div
-              className="flex w-full max-w-5xl min-h-0 flex-col gap-4"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setRouteCityComboboxOpen((prev) => !prev)}
-                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-600 bg-slate-800 px-4 py-3 text-left text-sm text-slate-100 transition hover:border-cyan-500"
-                  aria-expanded={routeCityComboboxOpen}
-                  aria-haspopup="listbox"
-                >
-                  <span className="truncate">{routeCityFilter || 'All cities'}</span>
-                  <span
-                    className={`text-slate-400 transition ${routeCityComboboxOpen ? 'rotate-180' : ''}`}
-                    aria-hidden="true"
-                  >
-                    ▾
-                  </span>
-                </button>
-
-                {routeCityComboboxOpen ? (
-                  <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[2100] overflow-hidden rounded-xl border border-slate-700 bg-slate-950 shadow-2xl shadow-black/40">
-                    <button
-                      type="button"
-                      onClick={() => handleCityFilterChange('')}
-                      className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm transition hover:bg-slate-800 ${
-                        !routeCityFilter ? 'bg-cyan-500/10 text-cyan-300' : 'text-slate-200'
-                      }`}
-                    >
-                      <span>All cities</span>
-                    </button>
-                    <div className="max-h-52 overflow-y-auto border-t border-slate-800">
-                      {routeCities.map((city) => (
-                        <button
-                          key={city}
-                          type="button"
-                          onClick={() => handleCityFilterChange(city)}
-                          className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm transition hover:bg-slate-800 ${
-                            routeCityFilter === city ? 'bg-cyan-500/10 text-cyan-300' : 'text-slate-200'
-                          }`}
-                        >
-                          <span className="truncate">{city}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-3 sm:p-4">
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-slate-200">
-                    Routes{filteredRoutes.length > 0 ? ` (${filteredRoutes.length})` : ''}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setRoutePickerOpen(false)}
-                    className="text-xs text-slate-400 hover:text-slate-200"
-                  >
-                    Close
-                  </button>
-                </div>
-
-                <ul className="flex max-h-[60dvh] flex-col gap-2 overflow-y-auto">
-                  {filteredRoutes.length === 0 ? (
-                    <li className="rounded-xl border border-dashed border-slate-700 px-3 py-4 text-center text-sm text-slate-500">
-                      No routes
-                    </li>
-                  ) : (
-                    filteredRoutes.map((route) => (
-                      <li key={route.id}>
-                        <button
-                          type="button"
-                          onClick={() => handleAttachPlannedRoute(route.id)}
-                          className={`w-full rounded-xl border px-4 py-3 text-left transition ${
-                            route.id === session.plannedRouteId
-                              ? 'border-cyan-500/60 bg-cyan-500/10 text-cyan-200'
-                              : 'border-slate-700 bg-slate-900 text-slate-200 hover:border-slate-500 hover:bg-slate-800'
-                          }`}
-                        >
-                          <p className="text-sm font-semibold">{route.name}</p>
-                          <p className="mt-0.5 text-xs text-slate-500">{route.city}</p>
-                        </button>
-                      </li>
-                    ))
-                  )}
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <RoutePickerModal
+        open={routePickerOpen}
+        title="Select route"
+        subtitle="Choose a city and then a route to assign."
+        selectedCity={routeCityFilter}
+        onSelectCity={handleCityFilterChange}
+        cityComboboxOpen={routeCityComboboxOpen}
+        onToggleCityCombobox={() => setRouteCityComboboxOpen((prev) => !prev)}
+        cities={routeCities}
+        routes={filteredRoutes}
+        selectedRouteId={session.plannedRouteId || ''}
+        onSelectRoute={handleAttachPlannedRoute}
+        onClose={handleCloseRoutePicker}
+      />
 
       <div className="overflow-x-auto rounded-xl border border-slate-700">
         <table className="min-w-full divide-y divide-slate-700 text-sm">
@@ -509,11 +373,11 @@ export default function SessionDetailPage() {
                   <td className="px-3 py-2">{entry.location?.lat ?? ''}</td>
                   <td className="px-3 py-2">{entry.location?.lon ?? ''}</td>
                   <td className="px-3 py-2">
-                    <TrafficBadge level={entry.observerAssessment} />
+                    <TrafficLevelBadge level={entry.observerAssessment} />
                   </td>
                   {providers.map((provider) => (
                     <td key={provider} className="px-3 py-2">
-                      <TrafficBadge level={levels[provider]} />
+                      <TrafficLevelBadge level={levels[provider]} />
                     </td>
                   ))}
                   <td className="px-3 py-2">

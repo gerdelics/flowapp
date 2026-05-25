@@ -1,11 +1,5 @@
 import Papa from 'papaparse'
-
-const LEVEL_TO_COLOR = {
-  free: 'Green',
-  medium: 'Yellow',
-  heavy: 'Red',
-  unknown: '',
-}
+import { getTrafficCsvColor } from './trafficLevels'
 
 function formatDateTime(date, useUtc = false) {
   const d = new Date(date)
@@ -96,7 +90,7 @@ export function buildLegacyCsvRows(entries, settings) {
           observerName: settings.observerName,
           timestamp: entry.timestamp,
           timezone,
-          color: LEVEL_TO_COLOR[provider.level] ?? '',
+          color: getTrafficCsvColor(provider.level),
           location: entry.location,
         }),
       )
@@ -108,7 +102,7 @@ export function buildLegacyCsvRows(entries, settings) {
         observerName: settings.observerName,
         timestamp: entry.timestamp,
         timezone,
-        color: LEVEL_TO_COLOR[entry.observerAssessment] ?? '',
+        color: getTrafficCsvColor(entry.observerAssessment),
         location: entry.location,
       }),
     )

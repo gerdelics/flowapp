@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
-import Layout from './components/Layout'
+import { AppLayout } from './components'
 import RecordingPage from './pages/RecordingPage'
 import RoutesPage from './pages/RoutesPage'
 import SessionDetailPage from './pages/SessionDetailPage'
@@ -9,7 +9,7 @@ import SettingsPage from './pages/SettingsPage'
 function App() {
   return (
     <Routes>
-      <Route element={<Layout />}>
+      <Route element={<AppLayout />}>
         <Route path="/" element={<RecordingPage />} />
         <Route path="/sessions" element={<SessionsPage />} />
         <Route path="/sessions/:id" element={<SessionDetailPage />} />

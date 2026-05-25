@@ -1,45 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
+import { RouteCityFilterCombobox } from '../components'
 import { db } from '../db'
 import { parseGpx } from '../utils/gpxParser'
+import { getSessionPathDistanceKm } from '../utils/sessionMetrics'
 import RouteMap from '../components/RouteMap'
-
-function haversineDistanceMeters(a, b) {
-  const toRad = (value) => (value * Math.PI) / 180
-  const R = 6371000
-  const dLat = toRad(b.lat - a.lat)
-  const dLon = toRad(b.lon - a.lon)
-  const lat1 = toRad(a.lat)
-  const lat2 = toRad(b.lat)
-
-  const h =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) * Math.sin(dLon / 2)
-
-  return 2 * R * Math.asin(Math.sqrt(h))
-}
-
-function getRouteLengthKm(points) {
-  if (!Array.isArray(points) || points.length < 2) {
-    return 0
-  }
-
-  let totalMeters = 0
-  for (let i = 1; i < points.length; i += 1) {
-    const prev = points[i - 1]
-    const curr = points[i]
-    if (
-      typeof prev?.lat === 'number' &&
-      typeof prev?.lon === 'number' &&
-      typeof curr?.lat === 'number' &&
-      typeof curr?.lon === 'number'
-    ) {
-      totalMeters += haversineDistanceMeters(prev, curr)
-    }
-  }
-
-  return totalMeters / 1000
-}
 
 function RouteCard({ route, isSelected, onClick, onEdit, onDelete, lengthKm }) {
   return (
@@ -150,10 +115,6 @@ export default function RoutesPage() {
   }, [routes, cityFilter])
 
   useEffect(() => {
-    setCityComboboxOpen(false)
-  }, [routes.length])
-
-  useEffect(() => {
     if (!cityComboboxOpen) {
       return undefined
     }
@@ -169,7 +130,7 @@ export default function RoutesPage() {
   const routeLengths = useMemo(() => {
     const map = new Map()
     routes.forEach((route) => {
-      map.set(route.id, getRouteLengthKm(route.points))
+      map.set(route.id, getSessionPathDistanceKm(route.points))
     })
     return map
   }, [routes])
@@ -331,56 +292,19 @@ export default function RoutesPage() {
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
               Filter by city
             </label>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setCityComboboxOpen((prev) => !prev)
-                }}
-                className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-600 bg-slate-800 px-4 py-3 text-left text-sm text-slate-100 transition hover:border-cyan-500"
-                aria-expanded={cityComboboxOpen}
-                aria-haspopup="listbox"
-              >
-                <span className="truncate">{cityFilter || 'All cities'}</span>
-                <span
-                  className={`text-slate-400 transition ${cityComboboxOpen ? 'rotate-180' : ''}`}
-                  aria-hidden="true"
-                >
-                  ▾
-                </span>
-              </button>
-
-              {cityComboboxOpen ? (
-                <div
-                  className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[40] overflow-hidden rounded-xl border border-slate-700 bg-slate-950 shadow-2xl shadow-black/40"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <button
-                    type="button"
-                    onClick={() => handleCityFilterPick('')}
-                    className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm transition hover:bg-slate-800 ${
-                      !cityFilter ? 'bg-cyan-500/10 text-cyan-300' : 'text-slate-200'
-                    }`}
-                  >
-                    <span>All cities</span>
-                  </button>
-                  <div className="max-h-56 overflow-y-auto border-t border-slate-800">
-                    {routeCities.map((cityName) => (
-                      <button
-                        key={cityName}
-                        type="button"
-                        onClick={() => handleCityFilterPick(cityName)}
-                        className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm transition hover:bg-slate-800 ${
-                          cityFilter === cityName ? 'bg-cyan-500/10 text-cyan-300' : 'text-slate-200'
-                        }`}
-                      >
-                        <span className="truncate">{cityName}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
+            <div
+              className="relative"
+              onClick={(event) => {
+                event.stopPropagation()
+              }}
+            >
+              <RouteCityFilterCombobox
+                isOpen={cityComboboxOpen}
+                selectedCity={cityFilter}
+                cities={routeCities}
+                onToggle={() => setCityComboboxOpen((prev) => !prev)}
+                onSelect={handleCityFilterPick}
+              />
             </div>
           </div>
         </section>
