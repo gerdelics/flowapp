@@ -41,33 +41,66 @@ function getRouteLengthKm(points) {
   return totalMeters / 1000
 }
 
-function RouteCard({ route, isSelected, onClick, onEdit, lengthKm }) {
+function RouteCard({ route, isSelected, onClick, onEdit, onDelete, lengthKm }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full rounded-xl border p-4 text-left transition ${
+    <div
+      className={`w-full rounded-xl border p-3 text-left transition ${
         isSelected
           ? 'border-orange-500 bg-slate-800 ring-2 ring-orange-500/50'
           : 'border-slate-700 bg-slate-900 hover:border-slate-500'
       }`}
     >
-      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{route.city}</p>
-      <p className="mt-1 text-base font-bold text-slate-100">{route.name}</p>
-      <p className="mt-1 text-xs text-slate-500">
-        {route.points?.length ?? 0} points &bull; {lengthKm.toFixed(2)} km &bull;{' '}
-        {new Date(route.createdAt).toLocaleDateString()}
-      </p>
-      <span
-        className="mt-2 inline-block text-xs text-cyan-400 hover:text-cyan-300"
-        onClick={(e) => {
-          e.stopPropagation()
-          onEdit(route)
-        }}
-      >
-        Edit
-      </span>
-    </button>
+      <div className="flex items-start justify-between gap-3">
+        <button type="button" onClick={onClick} className="min-w-0 flex-1 text-left">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+            {route.city}
+          </p>
+          <p className="mt-1 text-sm font-bold text-slate-100 sm:text-base">{route.name}</p>
+          <p className="mt-1 text-xs text-slate-500">{lengthKm.toFixed(2)} km</p>
+        </button>
+
+        <div className="flex shrink-0 items-start gap-2">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onEdit(route)
+            }}
+            className="rounded-md bg-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:bg-slate-600"
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete(route.id)
+            }}
+            className="rounded-md bg-red-600 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-red-500"
+            aria-label="Delete route"
+            title="Delete route"
+          >
+            🗑️
+          </button>
+        </div>
+      </div>
+
+      {isSelected ? (
+        <div className="mt-3 border-t border-slate-700 pt-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-xs text-slate-400">Preview</p>
+            <p className="text-xs text-slate-500">{route.points?.length ?? 0} points</p>
+          </div>
+          <RouteMap
+            className="h-56 w-full rounded-lg sm:h-64"
+            points={route.points}
+            fitRoute
+            fitRouteKey={route.id}
+            showStartEndMarkers
+          />
+        </div>
+      ) : null}
+    </div>
   )
 }
 
@@ -75,13 +108,13 @@ export default function RoutesPage() {
   const [routes, setRoutes] = useState([])
   const [selectedRoute, setSelectedRoute] = useState(null)
   const [cityFilter, setCityFilter] = useState('')
+  const [cityComboboxOpen, setCityComboboxOpen] = useState(false)
 
   const [city, setCity] = useState('')
   const [name, setName] = useState('')
   const [gpxFile, setGpxFile] = useState(null)
   const [gpxError, setGpxError] = useState('')
   const [saving, setSaving] = useState(false)
-  const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [addModalOpen, setAddModalOpen] = useState(false)
 
   const [editingRouteId, setEditingRouteId] = useState(null)
@@ -115,6 +148,23 @@ export default function RoutesPage() {
     }
     return routes.filter((route) => route.city === cityFilter)
   }, [routes, cityFilter])
+
+  useEffect(() => {
+    setCityComboboxOpen(false)
+  }, [routes.length])
+
+  useEffect(() => {
+    if (!cityComboboxOpen) {
+      return undefined
+    }
+
+    const onDocumentClick = () => setCityComboboxOpen(false)
+    document.addEventListener('click', onDocumentClick)
+
+    return () => {
+      document.removeEventListener('click', onDocumentClick)
+    }
+  }, [cityComboboxOpen])
 
   const routeLengths = useMemo(() => {
     const map = new Map()
@@ -176,7 +226,6 @@ export default function RoutesPage() {
     if (selectedRoute?.id === id) {
       setSelectedRoute(null)
     }
-    setDeleteConfirm(null)
     await loadRoutes()
   }
 
@@ -256,9 +305,14 @@ export default function RoutesPage() {
     setSelectedRoute((prev) => (prev?.id === route.id ? null : route))
   }
 
+  function handleCityFilterPick(cityName) {
+    setCityFilter(cityName)
+    setCityComboboxOpen(false)
+  }
+
   return (
     <>
-      <div className="grid gap-6 md:grid-cols-[1fr_1.5fr]">
+      <div className="grid gap-6">
       {/* Left column: form + route list */}
       <div className="flex flex-col gap-6">
         <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
@@ -277,18 +331,57 @@ export default function RoutesPage() {
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
               Filter by city
             </label>
-            <select
-              value={cityFilter}
-              onChange={(e) => setCityFilter(e.target.value)}
-              className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-cyan-500 focus:outline-none"
-            >
-              <option value="">All cities</option>
-              {routeCities.map((cityName) => (
-                <option key={cityName} value={cityName}>
-                  {cityName}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setCityComboboxOpen((prev) => !prev)
+                }}
+                className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-600 bg-slate-800 px-4 py-3 text-left text-sm text-slate-100 transition hover:border-cyan-500"
+                aria-expanded={cityComboboxOpen}
+                aria-haspopup="listbox"
+              >
+                <span className="truncate">{cityFilter || 'All cities'}</span>
+                <span
+                  className={`text-slate-400 transition ${cityComboboxOpen ? 'rotate-180' : ''}`}
+                  aria-hidden="true"
+                >
+                  ▾
+                </span>
+              </button>
+
+              {cityComboboxOpen ? (
+                <div
+                  className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[40] overflow-hidden rounded-xl border border-slate-700 bg-slate-950 shadow-2xl shadow-black/40"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleCityFilterPick('')}
+                    className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm transition hover:bg-slate-800 ${
+                      !cityFilter ? 'bg-cyan-500/10 text-cyan-300' : 'text-slate-200'
+                    }`}
+                  >
+                    <span>All cities</span>
+                  </button>
+                  <div className="max-h-56 overflow-y-auto border-t border-slate-800">
+                    {routeCities.map((cityName) => (
+                      <button
+                        key={cityName}
+                        type="button"
+                        onClick={() => handleCityFilterPick(cityName)}
+                        className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm transition hover:bg-slate-800 ${
+                          cityFilter === cityName ? 'bg-cyan-500/10 text-cyan-300' : 'text-slate-200'
+                        }`}
+                      >
+                        <span className="truncate">{cityName}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </div>
         </section>
 
@@ -357,64 +450,16 @@ export default function RoutesPage() {
                     route={route}
                     isSelected={selectedRoute?.id === route.id}
                     onEdit={openEdit}
+                    onDelete={handleDelete}
                     lengthKm={routeLengths.get(route.id) || 0}
                     onClick={() => handleCardClick(route)}
                   />
-
-                  {/* Delete button */}
-                  {deleteConfirm === route.id ? (
-                    <div className="absolute right-2 top-2 flex gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(route.id)}
-                        className="rounded bg-red-600 px-2 py-1 text-xs font-bold text-white hover:bg-red-500"
-                      >
-                        Confirm delete
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteConfirm(null)}
-                        className="rounded bg-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-600"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setDeleteConfirm(route.id)
-                      }}
-                      className="absolute right-2 top-2 rounded bg-slate-800 px-2 py-1 text-xs text-slate-400 hover:bg-slate-700 hover:text-red-400"
-                    >
-                      ✕
-                    </button>
-                  )}
                 </li>
               ))}
             </ul>
           )}
         </section>
       </div>
-
-      {/* Right column: map preview */}
-      <div className="sticky top-6 h-[420px] overflow-hidden rounded-xl border border-slate-700 bg-slate-900 md:h-[calc(100dvh-12rem)]">
-        {selectedRoute ? (
-          <RouteMap
-            className="h-full w-full"
-            points={selectedRoute.points}
-            fitRoute
-            fitRouteKey={selectedRoute.id}
-            showStartEndMarkers
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-sm text-slate-500">
-            Select a route to preview
-          </div>
-        )}
-      </div>
-
       </div>
 
       {addModalOpen ? (

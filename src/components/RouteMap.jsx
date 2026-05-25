@@ -30,6 +30,7 @@ export default function RouteMap({
 }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
+  const currentLocationRef = useRef(null)
   const pathRef = useRef(null)
   const overlayPathRef = useRef(null)
   const currentMarkerRef = useRef(null)
@@ -205,6 +206,7 @@ export default function RouteMap({
       typeof currentLocation.lat !== 'number' ||
       typeof currentLocation.lon !== 'number'
     ) {
+      currentLocationRef.current = null
       if (currentMarkerRef.current) {
         map.removeLayer(currentMarkerRef.current)
         currentMarkerRef.current = null
@@ -213,6 +215,7 @@ export default function RouteMap({
     }
 
     const latLng = [currentLocation.lat, currentLocation.lon]
+    currentLocationRef.current = latLng
 
     if (showCurrentMarker) {
       if (!currentMarkerRef.current) {
@@ -232,5 +235,33 @@ export default function RouteMap({
     }
   }, [currentLocation, followCurrent, followZoom, showCurrentMarker])
 
-  return <div ref={containerRef} className={className || 'h-full w-full rounded-md'} />
+  function handleGoToCurrentLocation() {
+    const map = mapRef.current
+    const latLng = currentLocationRef.current
+
+    if (!map || !latLng) {
+      return
+    }
+
+    map.setView(latLng, Math.max(map.getZoom(), followZoom), {
+      animate: true,
+    })
+  }
+
+  return (
+    <div className="relative h-full w-full">
+      <div ref={containerRef} className={className || 'h-full w-full rounded-md'} />
+
+      <button
+        type="button"
+        onClick={handleGoToCurrentLocation}
+        disabled={currentLocationRef.current === null}
+        className="absolute right-3 top-3 z-[1000] rounded-md border border-slate-700 bg-slate-950/90 px-3 py-2 text-xs font-semibold text-slate-100 shadow-lg backdrop-blur transition hover:border-cyan-500 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
+        title="Go to current location"
+        aria-label="Go to current location"
+      >
+        Current location
+      </button>
+    </div>
+  )
 }
