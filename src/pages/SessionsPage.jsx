@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { SyncActionButtons } from '../components'
+import { SessionsToolbar } from '../components'
 import SessionCard from '../components/SessionCard'
 import {
   deleteSession,
@@ -256,31 +256,15 @@ export default function SessionsPage() {
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-2xl font-semibold">Sessions</h2>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={importingArchive}
-            onClick={() => importInputRef.current?.click()}
-            className="rounded-md bg-cyan-600 px-3 py-2 text-sm font-semibold disabled:opacity-50"
-          >
-            {importingArchive ? 'Importing…' : 'Import session JSON'}
-          </button>
-          <SyncActionButtons
-            syncing={syncingSessionId === 'all'}
-            canSync={canSync}
-            onRetryDeadLetters={handleRetryDeadLettersAll}
-            onRetryAndSync={handleRetryAndSyncAll}
-            onSync={handleSyncAll}
-            retryLabel="Retry dead-letter (all)"
-            retryAndSyncLabel="Retry + Sync now (all)"
-            retryAndSyncBusyLabel="Retry+Sync all…"
-            syncLabel="Sync all unsynced"
-            syncBusyLabel="Syncing all…"
-          />
-        </div>
-      </div>
+      <SessionsToolbar
+        importingArchive={importingArchive}
+        onImportClick={() => importInputRef.current?.click()}
+        syncingAll={syncingSessionId === 'all'}
+        canSync={canSync}
+        onRetryDeadLettersAll={handleRetryDeadLettersAll}
+        onRetryAndSyncAll={handleRetryAndSyncAll}
+        onSyncAll={handleSyncAll}
+      />
       <input
         ref={importInputRef}
         type="file"
