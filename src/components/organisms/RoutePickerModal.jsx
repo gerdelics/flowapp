@@ -25,7 +25,7 @@ export default function RoutePickerModal({
       contentClassName="flex h-full w-full flex-col"
     >
       <div className="border-b border-slate-800 bg-slate-900/95" onClick={(e) => e.stopPropagation()}>
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
+        <div className="flex w-full items-center justify-between gap-3 px-4 py-4 sm:px-6">
           <button
             type="button"
             onClick={onClose}
@@ -49,8 +49,8 @@ export default function RoutePickerModal({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 justify-center overflow-y-auto px-4 py-4 sm:px-6">
-        <div className="flex w-full max-w-5xl min-h-0 flex-col gap-4" onClick={(event) => event.stopPropagation()}>
+      <div className="flex min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+        <div className="flex min-h-0 w-full flex-col gap-4" onClick={(event) => event.stopPropagation()}>
           <RouteCityFilterCombobox
             isOpen={cityComboboxOpen}
             selectedCity={selectedCity}
@@ -59,7 +59,7 @@ export default function RoutePickerModal({
             onSelect={onSelectCity}
           />
 
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-3 sm:p-4">
+          <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-800 bg-slate-900/80 p-3 sm:p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
               <p className="text-sm font-semibold text-slate-200">
                 Routes{routes.length > 0 ? ` (${routes.length})` : ''}
@@ -69,7 +69,7 @@ export default function RoutePickerModal({
               </button>
             </div>
 
-            <ul className="flex max-h-[60dvh] flex-col gap-2 overflow-y-auto">
+            <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
               {routes.length === 0 ? (
                 <li className="rounded-xl border border-dashed border-slate-700 px-3 py-4 text-center text-sm text-slate-500">
                   No routes
