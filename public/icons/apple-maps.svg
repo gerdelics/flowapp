@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Apple Maps">
-  <rect width="128" height="128" rx="24" fill="#0f172a"/>
-  <rect x="18" y="18" width="92" height="92" rx="16" fill="#f8fafc"/>
-  <path d="M28 80c16-8 30-8 44 0 14 8 28 8 44 0" stroke="#22c55e" stroke-width="8" fill="none"/>
-  <path d="M28 56c16 8 30 8 44 0 14-8 28-8 44 0" stroke="#3b82f6" stroke-width="8" fill="none"/>
-  <path d="M64 24v80" stroke="#ef4444" stroke-width="8"/>
-  <circle cx="64" cy="40" r="8" fill="#f59e0b"/>
-</svg>

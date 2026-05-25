@@ -3,8 +3,15 @@ import { useAutoRecord } from '../hooks/useAutoRecord'
 import { useGeolocation } from '../hooks/useGeolocation'
 import { useSession } from '../hooks/useSession'
 import { useSettings } from '../hooks/useSettings'
-import RouteMap from '../components/RouteMap'
+import {
+  RecordToast,
+  RouteMap,
+  RouteOverlayLoader,
+  RoutePickerModal,
+  TrafficLevelSelector,
+} from '../components'
 import { db } from '../db'
+import { playNotificationBeep } from '../utils/audio'
 
 function sanitizePath(path) {
   if (!Array.isArray(path)) {
@@ -12,188 +19,6 @@ function sanitizePath(path) {
   }
 
   return path.filter((point) => typeof point?.lat === 'number' && typeof point?.lon === 'number')
-}
-
-const TRAFFIC_LEVELS = [
-  {
-    key: 'free',
-    label: 'FREE',
-    selectedClassName: 'border-emerald-300 bg-emerald-500 text-white shadow-md hover:bg-emerald-400',
-    inactiveClassName: 'border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-500 hover:bg-slate-700',
-  },
-  {
-    key: 'medium',
-    label: 'MED',
-    selectedClassName: 'border-yellow-200 bg-yellow-400 text-slate-950 shadow-md hover:bg-yellow-300',
-    inactiveClassName: 'border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-500 hover:bg-slate-700',
-  },
-  {
-    key: 'heavy',
-    label: 'HEAVY',
-    selectedClassName: 'border-red-300 bg-red-500 text-white shadow-md hover:bg-red-400',
-    inactiveClassName: 'border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-500 hover:bg-slate-700',
-  },
-]
-
-const TOAST_LEVELS = {
-  free: { label: 'FREE', className: 'bg-emerald-600 text-white' },
-  medium: { label: 'MED', className: 'bg-amber-500 text-slate-950' },
-  heavy: { label: 'HEAVY', className: 'bg-red-600 text-white' },
-}
-
-function getToastLevel(level) {
-  return TOAST_LEVELS[level] || TOAST_LEVELS.medium
-}
-
-function RecordLevelRow({ name, levelKey, iconUrl }) {
-  const level = getToastLevel(levelKey)
-
-  return (
-    <li className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2 shadow-sm ${level.className}`}>
-      <div className="flex min-w-0 items-center gap-2">
-        {iconUrl ? (
-          <img src={iconUrl} alt="" className="h-6 w-6 rounded bg-white object-contain p-0.5" />
-        ) : null}
-        <span className="truncate text-sm font-semibold">{name}</span>
-      </div>
-
-      <span className="shrink-0 rounded-full bg-black/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide">
-        {level.label}
-      </span>
-    </li>
-  )
-}
-
-function RecordToast({ record, onDismiss }) {
-  if (!record) {
-    return null
-  }
-
-  const channelLabel = record.channel === 'auto' ? 'Automatic reporting' : 'Manual reporting'
-
-  return (
-    <div className="pointer-events-none fixed inset-x-3 top-3 z-50 flex justify-center md:inset-x-auto md:right-4 md:justify-end">
-      <div className="pointer-events-auto w-full max-w-2xl rounded-2xl border border-cyan-500/30 bg-slate-950/95 p-4 shadow-2xl shadow-slate-950/60 backdrop-blur">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300">
-              {channelLabel}
-            </p>
-            <p className="mt-1 text-base font-bold text-slate-50">New record saved</p>
-            <p className="mt-1 text-xs text-slate-400">
-              {new Date(record.timestamp).toLocaleString()}
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={onDismiss}
-            className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-300 transition hover:border-slate-500 hover:text-white"
-          >
-            Dismiss
-          </button>
-        </div>
-
-        <ul className="mt-4 flex flex-col gap-2">
-          <RecordLevelRow name="Observer" levelKey={record.observerAssessment} />
-
-          {(record.providers || []).length ? (
-            record.providers.map((provider) => (
-              <RecordLevelRow
-                key={`${provider.name}-${provider.level}`}
-                name={provider.name}
-                levelKey={provider.level}
-                iconUrl={provider.iconUrl}
-              />
-            ))
-          ) : (
-            <li className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-400">
-              No active providers were selected
-            </li>
-          )}
-        </ul>
-      </div>
-    </div>
-  )
-}
-
-function TrafficCard({ title, iconUrl, value, onSelect }) {
-  return (
-    <div className="h-full rounded-xl border border-slate-700 bg-slate-900 p-3">
-      <div className="mb-2 flex items-center gap-2">
-        {iconUrl ? (
-          <img src={iconUrl} alt="" className="h-7 w-7 rounded bg-white object-contain p-1" />
-        ) : null}
-        <p className="text-sm font-semibold text-slate-100 md:text-base">{title}</p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-2">
-        {TRAFFIC_LEVELS.map((level) => (
-          <button
-            key={level.key}
-            type="button"
-            onClick={() => onSelect(level.key)}
-            aria-pressed={value === level.key}
-            className={`rounded-md border px-3 py-2 text-sm font-bold transition ${
-              value === level.key ? level.selectedClassName : level.inactiveClassName
-            }`}
-          >
-            {level.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function MobileTrafficRow({ title, iconUrl, value, onSelect }) {
-  return (
-    <div className="rounded-lg border border-slate-700 bg-slate-900 p-2">
-      <div className="mb-2 flex items-center gap-2">
-        {iconUrl ? (
-          <img src={iconUrl} alt="" className="h-5 w-5 rounded bg-white object-contain p-0.5" />
-        ) : null}
-        <p className="truncate text-xs font-semibold text-slate-100">{title}</p>
-      </div>
-
-      <div className="grid grid-cols-3 gap-1.5">
-        {TRAFFIC_LEVELS.map((level) => (
-          <button
-            key={level.key}
-            type="button"
-            onClick={() => onSelect(level.key)}
-            aria-pressed={value === level.key}
-            className={`rounded px-1 py-2 text-[11px] font-bold transition ${
-              value === level.key ? level.selectedClassName : level.inactiveClassName
-            }`}
-          >
-            {level.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function playBeep() {
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext
-  if (!AudioContextClass) {
-    return
-  }
-
-  const context = new AudioContextClass()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-
-  oscillator.type = 'sine'
-  oscillator.frequency.value = 1040
-  gain.gain.value = 0.06
-
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-
-  oscillator.start()
-  oscillator.stop(context.currentTime + 0.12)
 }
 
 export default function RecordingPage() {
@@ -288,6 +113,11 @@ export default function RecordingPage() {
     }
   }
 
+  function closeRoutePicker() {
+    setRoutePickerOpen(false)
+    setRouteCityComboboxOpen(false)
+  }
+
   const dismissRecordToast = useCallback(() => {
     if (recordToastTimerRef.current) {
       clearTimeout(recordToastTimerRef.current)
@@ -362,16 +192,6 @@ export default function RecordingPage() {
       media.removeEventListener('change', onChange)
     }
   }, [])
-
-  useEffect(() => {
-    setMobileMapOpen(sessionActive)
-  }, [sessionActive])
-
-  useEffect(() => {
-    if (!routePickerOpen) {
-      setRouteCityComboboxOpen(false)
-    }
-  }, [routePickerOpen])
 
   useEffect(() => {
     if (!session.session) {
@@ -477,6 +297,7 @@ export default function RecordingPage() {
       if (createdSession?.name) {
         setSessionNameDraft(createdSession.name)
       }
+      setMobileMapOpen(true)
       pathBufferRef.current = []
 
       if (geolocation.location) {
@@ -537,6 +358,7 @@ export default function RecordingPage() {
       manualExpiryBeepedRef.current = false
       pathBufferRef.current = []
       setLivePathPoints([])
+      setMobileMapOpen(false)
     } finally {
       setStoppingSession(false)
     }
@@ -590,7 +412,7 @@ export default function RecordingPage() {
     }
 
     if (manualBeepEnabled && !manualExpiryBeepedRef.current) {
-      playBeep()
+      playNotificationBeep()
       manualExpiryBeepedRef.current = true
     }
   }, [
@@ -654,130 +476,20 @@ export default function RecordingPage() {
         </details>
       </section>
 
-      {/* Route picker modal */}
-      {routePickerOpen ? (
-        <div
-          className="fixed inset-0 z-[2000] flex flex-col bg-slate-950"
-        >
-          <div className="border-b border-slate-800 bg-slate-900/95" onClick={(e) => e.stopPropagation()}>
-            <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
-              <button
-                type="button"
-                onClick={() => setRoutePickerOpen(false)}
-                className="rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-100 hover:border-slate-500 sm:px-3 sm:py-2 sm:text-sm"
-              >
-                Back
-              </button>
-
-              <div className="min-w-0 text-center">
-                <p className="text-sm font-bold text-slate-100">Select route</p>
-                <p className="text-xs text-slate-400">Choose a city and then a route to load.</p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setRoutePickerOpen(false)}
-                className="rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-100 hover:border-slate-500 sm:px-3 sm:py-2 sm:text-sm"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-
-          <div
-            className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 sm:px-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setRouteCityComboboxOpen((prev) => !prev)}
-                className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-600 bg-slate-800 px-4 py-3 text-left text-sm text-slate-100 transition hover:border-cyan-500"
-                aria-expanded={routeCityComboboxOpen}
-                aria-haspopup="listbox"
-              >
-                <span className="truncate">
-                  {routeCityFilter || 'All cities'}
-                </span>
-                <span
-                  className={`text-slate-400 transition ${routeCityComboboxOpen ? 'rotate-180' : ''}`}
-                  aria-hidden="true"
-                >
-                  ▾
-                </span>
-              </button>
-
-              {routeCityComboboxOpen ? (
-                <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-[2100] overflow-hidden rounded-xl border border-slate-700 bg-slate-950 shadow-2xl shadow-black/40">
-                  <button
-                    type="button"
-                    onClick={() => handleCityFilterChange('')}
-                    className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm transition hover:bg-slate-800 ${
-                      !routeCityFilter ? 'bg-cyan-500/10 text-cyan-300' : 'text-slate-200'
-                    }`}
-                  >
-                    <span>All cities</span>
-                  </button>
-                  <div className="max-h-52 overflow-y-auto border-t border-slate-800">
-                    {routeCities.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => handleCityFilterChange(c)}
-                        className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm transition hover:bg-slate-800 ${
-                          routeCityFilter === c ? 'bg-cyan-500/10 text-cyan-300' : 'text-slate-200'
-                        }`}
-                      >
-                        <span className="truncate">{c}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-3 sm:p-4">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-slate-200">
-                  Routes{filteredRoutes.length > 0 ? ` (${filteredRoutes.length})` : ''}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setRoutePickerOpen(false)}
-                  className="text-xs text-slate-400 hover:text-slate-200"
-                >
-                  Close
-                </button>
-              </div>
-
-              <ul className="flex max-h-[60dvh] flex-col gap-2 overflow-y-auto">
-                {filteredRoutes.length === 0 ? (
-                  <li className="rounded-xl border border-dashed border-slate-700 px-3 py-4 text-center text-sm text-slate-500">
-                    No routes
-                  </li>
-                ) : (
-                  filteredRoutes.map((r) => (
-                    <li key={r.id}>
-                      <button
-                        type="button"
-                        onClick={() => handleOverlayRouteChange(r.id)}
-                        className={`w-full rounded-xl border px-4 py-3 text-left transition ${
-                          r.id === selectedOverlayRouteId
-                            ? 'border-cyan-500/60 bg-cyan-500/10 text-cyan-200'
-                            : 'border-slate-700 bg-slate-900 text-slate-200 hover:border-slate-500 hover:bg-slate-800'
-                        }`}
-                      >
-                        <p className="text-sm font-semibold">{r.name}</p>
-                        <p className="mt-0.5 text-xs text-slate-500">{r.city}</p>
-                      </button>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <RoutePickerModal
+        open={routePickerOpen}
+        title="Select route"
+        subtitle="Choose a city and then a route to load."
+        selectedCity={routeCityFilter}
+        onSelectCity={handleCityFilterChange}
+        cityComboboxOpen={routeCityComboboxOpen}
+        onToggleCityCombobox={() => setRouteCityComboboxOpen((prev) => !prev)}
+        cities={routeCities}
+        routes={filteredRoutes}
+        selectedRouteId={selectedOverlayRouteId}
+        onSelectRoute={handleOverlayRouteChange}
+        onClose={closeRoutePicker}
+      />
 
       <div className="grid min-h-[calc(100dvh-9.5rem)] gap-3 md:h-[calc(100dvh-9.5rem)] md:min-h-[620px] md:grid-rows-[2fr_1fr]">
       <section className="grid min-h-0 gap-3 md:grid-cols-[2fr_1fr]">
@@ -890,76 +602,45 @@ export default function RecordingPage() {
             <p className="mt-1 text-sm font-semibold text-amber-300">Session is paused.</p>
           ) : null}
 
-          {/* Route overlay loader */}
-          {savedRoutes.length > 0 ? (
-            <div className="mt-4 border-t border-slate-700 pt-4">
-              {selectedOverlayRouteId ? (
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-xs text-slate-500">Loaded route</p>
-                    <p className="truncate text-sm font-semibold text-orange-400">
-                      {savedRoutes.find((r) => r.id === selectedOverlayRouteId)?.name}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setRoutePickerOpen(true)}
-                      className="text-xs text-slate-400 hover:text-slate-200"
-                    >
-                      Replace
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleClearOverlayRoute}
-                      className="text-xs text-slate-500 hover:text-red-400"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setRoutePickerOpen(true)}
-                  className="text-sm text-slate-400 hover:text-slate-100"
-                >
-                  + Load route
-                </button>
-              )}
-            </div>
-          ) : null}
+          <RouteOverlayLoader
+            savedRoutes={savedRoutes}
+            selectedOverlayRouteId={selectedOverlayRouteId}
+            onOpenPicker={() => setRoutePickerOpen(true)}
+            onClearOverlayRoute={handleClearOverlayRoute}
+          />
         </div>
       </section>
 
       <section className="min-h-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-950/50 p-2">
         <div className="grid grid-cols-1 gap-2 md:hidden sm:grid-cols-2">
-          <MobileTrafficRow
+          <TrafficLevelSelector
             title="User Perception"
             value={session.observerAssessment}
             onSelect={session.setObserverAssessment}
+            compact
           />
 
           {activeProviders.map((provider) => (
-            <MobileTrafficRow
+            <TrafficLevelSelector
               key={provider.id}
               title={provider.name}
               iconUrl={provider.iconUrl}
               value={session.providerLevels[provider.name] || 'medium'}
               onSelect={(level) => session.updateProviderLevel(provider.name, level)}
+              compact
             />
           ))}
         </div>
 
         <div className="hidden h-full gap-2 md:grid" style={{ gridTemplateColumns: gridColumns }}>
-          <TrafficCard
+          <TrafficLevelSelector
             title="User Perception"
             value={session.observerAssessment}
             onSelect={session.setObserverAssessment}
           />
 
           {activeProviders.map((provider) => (
-            <TrafficCard
+            <TrafficLevelSelector
               key={provider.id}
               title={provider.name}
               iconUrl={provider.iconUrl}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import SessionCard from '../components/SessionCard'
+import { SessionCard, SessionsToolbar } from '../components'
 import {
   deleteSession,
   getDeadLetterEntriesBySessionId,
@@ -255,42 +255,15 @@ export default function SessionsPage() {
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-2xl font-semibold">Sessions</h2>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={importingArchive}
-            onClick={() => importInputRef.current?.click()}
-            className="rounded-md bg-cyan-600 px-3 py-2 text-sm font-semibold disabled:opacity-50"
-          >
-            {importingArchive ? 'Importing…' : 'Import session JSON'}
-          </button>
-          <button
-            type="button"
-            onClick={handleRetryDeadLettersAll}
-            className="rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-950"
-          >
-            Retry dead-letter (all)
-          </button>
-          <button
-            type="button"
-            disabled={syncingSessionId === 'all' || !canSync}
-            onClick={handleRetryAndSyncAll}
-            className="rounded-md bg-fuchsia-600 px-3 py-2 text-sm font-semibold disabled:opacity-50"
-          >
-            {syncingSessionId === 'all' ? 'Retry+Sync all…' : 'Retry + Sync now (all)'}
-          </button>
-          <button
-            type="button"
-            disabled={syncingSessionId === 'all' || !canSync}
-            onClick={handleSyncAll}
-            className="rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold disabled:opacity-50"
-          >
-            {syncingSessionId === 'all' ? 'Syncing all…' : 'Sync all unsynced'}
-          </button>
-        </div>
-      </div>
+      <SessionsToolbar
+        importingArchive={importingArchive}
+        onImportClick={() => importInputRef.current?.click()}
+        syncingAll={syncingSessionId === 'all'}
+        canSync={canSync}
+        onRetryDeadLettersAll={handleRetryDeadLettersAll}
+        onRetryAndSyncAll={handleRetryAndSyncAll}
+        onSyncAll={handleSyncAll}
+      />
       <input
         ref={importInputRef}
         type="file"

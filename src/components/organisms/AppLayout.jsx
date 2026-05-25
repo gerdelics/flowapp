@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { useState } from 'react'
+import { NavLink, Outlet } from 'react-router-dom'
 
 const links = [
   { to: '/', label: 'Recording' },
@@ -8,13 +8,35 @@ const links = [
   { to: '/settings', label: 'Settings' },
 ]
 
-export default function Layout() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const location = useLocation()
+function NavItems({ onNavigate, className = 'gap-2 md:flex' }) {
+  return (
+    <nav className={className}>
+      {links.map((link) => (
+        <NavLink
+          key={link.to}
+          to={link.to}
+          onClick={onNavigate}
+          className={({ isActive }) =>
+            `rounded-md px-3 py-1.5 text-sm transition ${
+              isActive
+                ? 'bg-cyan-500 text-slate-950'
+                : 'bg-slate-800 text-slate-200 hover:bg-slate-700'
+            }`
+          }
+        >
+          {link.label}
+        </NavLink>
+      ))}
+    </nav>
+  )
+}
 
-  useEffect(() => {
+export default function AppLayout() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  function closeMobileMenu() {
     setMobileMenuOpen(false)
-  }, [location.pathname])
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -36,44 +58,12 @@ export default function Layout() {
             </span>
           </button>
 
-          <nav className="hidden gap-2 md:flex">
-            {links.map((link) => (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                className={({ isActive }) =>
-                  `rounded-md px-3 py-1.5 text-sm transition ${
-                    isActive
-                      ? 'bg-cyan-500 text-slate-950'
-                      : 'bg-slate-800 text-slate-200 hover:bg-slate-700'
-                  }`
-                }
-              >
-                {link.label}
-              </NavLink>
-            ))}
-          </nav>
+          <NavItems className="hidden gap-2 md:flex" onNavigate={closeMobileMenu} />
         </div>
 
         {mobileMenuOpen ? (
           <div className="border-t border-slate-800 bg-slate-900 px-4 py-3 md:hidden">
-            <nav className="mx-auto flex w-full max-w-6xl flex-col gap-2">
-              {links.map((link) => (
-                <NavLink
-                  key={link.to}
-                  to={link.to}
-                  className={({ isActive }) =>
-                    `rounded-md px-3 py-2 text-sm transition ${
-                      isActive
-                        ? 'bg-cyan-500 text-slate-950'
-                        : 'bg-slate-800 text-slate-200 hover:bg-slate-700'
-                    }`
-                  }
-                >
-                  {link.label}
-                </NavLink>
-              ))}
-            </nav>
+            <NavItems className="mx-auto flex w-full max-w-6xl flex-col gap-2" onNavigate={closeMobileMenu} />
           </div>
         ) : null}
       </header>

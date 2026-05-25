@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Google Maps">
-  <rect width="128" height="128" rx="24" fill="#1f2937"/>
-  <circle cx="64" cy="52" r="28" fill="#22c55e"/>
-  <circle cx="64" cy="52" r="14" fill="#fef08a"/>
-  <path d="M64 118c-18-22-27-36-27-52a27 27 0 1 1 54 0c0 16-9 30-27 52z" fill="#ef4444"/>
-  <text x="64" y="60" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" fill="#111827" font-weight="700">G</text>
-</svg>

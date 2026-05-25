@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { IconAvatar, PanelSection, ProviderForm } from '../components'
+import { OverlayModal } from '../components'
 import {
   clearAllData,
   db,
@@ -218,150 +220,44 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      {isAddProviderModalOpen ? (
-        <div
-          className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/60 sm:items-center"
-          onClick={() => setIsAddProviderModalOpen(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-t-2xl border border-slate-700 bg-slate-900 p-5 sm:rounded-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-base font-bold text-slate-100">Add new provider</p>
-              <button
-                type="button"
-                onClick={() => setIsAddProviderModalOpen(false)}
-                className="text-sm text-slate-500 hover:text-slate-200"
-              >
-                Cancel
-              </button>
-            </div>
+      <OverlayModal
+        open={isAddProviderModalOpen}
+        onClose={() => setIsAddProviderModalOpen(false)}
+        title="Add new provider"
+      >
+        <ProviderForm
+          onSubmit={handleAddProvider}
+          submitLabel="Save provider"
+          name={nameInput}
+          onNameChange={setNameInput}
+          csvName={csvNameInput}
+          onCsvNameChange={setCsvNameInput}
+        />
+      </OverlayModal>
 
-            <form onSubmit={handleAddProvider} className="space-y-3">
-              <label className="block text-sm text-slate-300">
-                Provider name
-                <input
-                  type="text"
-                  value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2"
-                />
-              </label>
+      <OverlayModal
+        open={isEditProviderModalOpen}
+        onClose={closeEditProviderModal}
+        title="Edit provider"
+      >
+        <ProviderForm
+          onSubmit={handleSaveProviderEdits}
+          submitLabel="Save changes"
+          name={editNameInput}
+          onNameChange={setEditNameInput}
+          csvName={editCsvNameInput}
+          onCsvNameChange={setEditCsvNameInput}
+          iconUrl={editIconUrlInput}
+          onIconUrlChange={setEditIconUrlInput}
+          onDefaultIcon={() => setEditIconUrlInput(getDefaultProviderIconUrl(editNameInput))}
+          onRemoveIcon={() => setEditIconUrlInput('')}
+          active={editActiveInput}
+          onActiveChange={setEditActiveInput}
+          showAdvancedFields
+        />
+      </OverlayModal>
 
-              <label className="block text-sm text-slate-300">
-                CSV name
-                <input
-                  type="text"
-                  value={csvNameInput}
-                  onChange={(e) => setCsvNameInput(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2"
-                />
-              </label>
-
-              <button
-                type="submit"
-                className="w-full rounded-md bg-cyan-500 px-3 py-2 font-semibold text-slate-950"
-              >
-                Save provider
-              </button>
-            </form>
-          </div>
-        </div>
-      ) : null}
-
-      {isEditProviderModalOpen ? (
-        <div
-          className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/60 sm:items-center"
-          onClick={closeEditProviderModal}
-        >
-          <div
-            className="w-full max-w-md rounded-t-2xl border border-slate-700 bg-slate-900 p-5 sm:rounded-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-base font-bold text-slate-100">Edit provider</p>
-              <button
-                type="button"
-                onClick={closeEditProviderModal}
-                className="text-sm text-slate-500 hover:text-slate-200"
-              >
-                Cancel
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveProviderEdits} className="space-y-3">
-              <label className="block text-sm text-slate-300">
-                Provider name
-                <input
-                  type="text"
-                  value={editNameInput}
-                  onChange={(e) => setEditNameInput(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2"
-                />
-              </label>
-
-              <label className="block text-sm text-slate-300">
-                CSV name
-                <input
-                  type="text"
-                  value={editCsvNameInput}
-                  onChange={(e) => setEditCsvNameInput(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2"
-                />
-              </label>
-
-              <label className="block text-sm text-slate-300">
-                Icon URL
-                <input
-                  type="url"
-                  inputMode="url"
-                  placeholder="https://..."
-                  value={editIconUrlInput}
-                  onChange={(e) => setEditIconUrlInput(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2"
-                />
-              </label>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setEditIconUrlInput(getDefaultProviderIconUrl(editNameInput))}
-                  className="rounded bg-slate-700 px-2 py-1 text-xs"
-                >
-                  Default icon
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditIconUrlInput('')}
-                  className="rounded bg-slate-700 px-2 py-1 text-xs"
-                >
-                  Remove icon
-                </button>
-              </div>
-
-              <label className="mt-1 flex items-center gap-2 text-sm text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={editActiveInput}
-                  onChange={(e) => setEditActiveInput(e.target.checked)}
-                />
-                Provider active
-              </label>
-
-              <button
-                type="submit"
-                className="w-full rounded-md bg-cyan-500 px-3 py-2 font-semibold text-slate-950"
-              >
-                Save changes
-              </button>
-            </form>
-          </div>
-        </div>
-      ) : null}
-
-      <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
-        <h2 className="text-xl font-semibold">General</h2>
+      <PanelSection title="General">
         <label className="mt-3 block text-sm text-slate-300">
           Observer name
           <input
@@ -460,10 +356,9 @@ export default function SettingsPage() {
             </p>
           ) : null}
         </div>
-      </section>
+      </PanelSection>
 
-      <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
-        <h2 className="text-xl font-semibold">Providers</h2>
+      <PanelSection title="Providers">
         <p className="mt-2 text-sm text-slate-400">
           Drag and drop a provider to change its order.
         </p>
@@ -525,15 +420,7 @@ export default function SettingsPage() {
                     <span className="select-none text-slate-500" aria-hidden="true">
                       ⋮⋮
                     </span>
-                    {provider.iconUrl ? (
-                      <img
-                        src={provider.iconUrl}
-                        alt=""
-                        className="h-8 w-8 rounded bg-white object-contain p-1"
-                      />
-                    ) : (
-                      <div className="h-8 w-8 rounded bg-slate-700" />
-                    )}
+                    <IconAvatar src={provider.iconUrl} sizeClassName="h-8 w-8" />
                     <p className="font-medium">
                       {provider.name}{' '}
                       <span className="text-xs text-slate-400">({provider.csvName})</span>
@@ -592,10 +479,9 @@ export default function SettingsPage() {
         >
           + Add new provider
         </button>
-      </section>
+      </PanelSection>
 
-      <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
-        <h2 className="text-xl font-semibold">Azure Sync Settings</h2>
+      <PanelSection title="Azure Sync Settings">
         <label className="mt-3 block text-sm text-slate-300">
           Endpoint URL
           <input
@@ -614,10 +500,9 @@ export default function SettingsPage() {
             className="mt-1 w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2"
           />
         </label>
-      </section>
+      </PanelSection>
 
-      <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
-        <h2 className="text-xl font-semibold">Demo Data</h2>
+      <PanelSection title="Demo Data">
         <p className="mt-2 text-sm text-slate-400">
           Loads the demo route (Tiszakécske / Arterial 1) from GPX and imports the session JSON.
         </p>
@@ -634,10 +519,13 @@ export default function SettingsPage() {
         {demoMessage ? (
           <p className="mt-3 text-sm text-slate-200">{demoMessage}</p>
         ) : null}
-      </section>
+      </PanelSection>
 
-      <section className="rounded-xl border border-red-700 bg-red-950/40 p-4">
-        <h2 className="text-xl font-semibold text-red-300">Danger Zone</h2>
+      <PanelSection
+        title="Danger Zone"
+        className="rounded-xl border border-red-700 bg-red-950/40 p-4"
+        titleClassName="text-xl font-semibold text-red-300"
+      >
         <button
           type="button"
           onClick={handleExportAll}
@@ -652,7 +540,7 @@ export default function SettingsPage() {
         >
           Clear all data
         </button>
-      </section>
+      </PanelSection>
     </div>
   )
 }

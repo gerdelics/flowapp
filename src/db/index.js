@@ -435,7 +435,7 @@ export async function getAllEntries() {
   return db.entries.orderBy('timestamp').toArray()
 }
 
-export async function getUnsyncedEntries() {
+async function getUnsyncedEntries() {
   return db.entries.where('synced').equals(false).toArray()
 }
 

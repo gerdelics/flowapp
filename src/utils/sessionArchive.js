@@ -15,7 +15,7 @@ function sanitizeFilenamePart(value) {
     .slice(0, 120) || 'session'
 }
 
-export function buildSessionArchive(session, entries) {
+function buildSessionArchive(session, entries) {
   return {
     schemaVersion: SESSION_ARCHIVE_SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
