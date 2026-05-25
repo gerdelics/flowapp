@@ -1,4 +1,5 @@
 export { default as ProviderForm } from './ProviderForm'
 export { default as RouteCityFilterCombobox } from './RouteCityFilterCombobox'
+export { default as SessionActionButtons } from './SessionActionButtons'
 export { default as SyncActionButtons } from './SyncActionButtons'
 export { default as TrafficLevelSelector } from './TrafficLevelSelector'
