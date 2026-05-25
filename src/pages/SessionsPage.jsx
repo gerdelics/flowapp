@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { SessionsToolbar } from '../components'
-import SessionCard from '../components/SessionCard'
+import { SessionCard, SessionsToolbar } from '../components'
 import {
   deleteSession,
   getDeadLetterEntriesBySessionId,

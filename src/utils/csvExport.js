@@ -72,7 +72,7 @@ function rowToLegacyCsvLine(row) {
   return `${before20},,${col21},${after21}`
 }
 
-export function buildLegacyCsvRows(entries, settings) {
+function buildLegacyCsvRows(entries, settings) {
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
 
   const rows = []

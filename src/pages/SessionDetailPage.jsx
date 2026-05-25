@@ -26,8 +26,7 @@ import {
   getSessionAverageSpeedKmh,
   getSessionPathDistanceKm,
 } from '../utils/sessionMetrics'
-import { RoutePickerModal, SyncActionButtons, TrafficLevelBadge } from '../components'
-import RouteMap from '../components/RouteMap'
+import { RouteMap, RoutePickerModal, SyncActionButtons, TrafficLevelBadge } from '../components'
 
 function mapProviderLevels(entry) {
   const map = {}

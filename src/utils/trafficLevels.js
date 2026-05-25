@@ -31,7 +31,7 @@ export const TRAFFIC_LEVELS = [
   },
 ]
 
-export const TRAFFIC_LEVEL_MAP = TRAFFIC_LEVELS.reduce((map, level) => {
+const TRAFFIC_LEVEL_MAP = TRAFFIC_LEVELS.reduce((map, level) => {
   map[level.key] = level
   return map
 }, {})

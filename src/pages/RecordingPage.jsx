@@ -3,9 +3,13 @@ import { useAutoRecord } from '../hooks/useAutoRecord'
 import { useGeolocation } from '../hooks/useGeolocation'
 import { useSession } from '../hooks/useSession'
 import { useSettings } from '../hooks/useSettings'
-import { RouteOverlayLoader, TrafficLevelSelector } from '../components'
-import { RecordToast, RoutePickerModal } from '../components'
-import RouteMap from '../components/RouteMap'
+import {
+  RecordToast,
+  RouteMap,
+  RouteOverlayLoader,
+  RoutePickerModal,
+  TrafficLevelSelector,
+} from '../components'
 import { db } from '../db'
 import { playNotificationBeep } from '../utils/audio'
 
