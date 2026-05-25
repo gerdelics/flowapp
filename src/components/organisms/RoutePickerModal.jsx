@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import BaseModal from './BaseModal'
 import { RouteCityFilterCombobox } from '../molecules'
 
@@ -12,17 +13,26 @@ export default function RoutePickerModal({
   cities,
   routes,
   selectedRouteId,
-  onSelectRoute,
+  onDone,
   onClose,
 }) {
+  const [draftSelectedRouteId, setDraftSelectedRouteId] = useState(selectedRouteId || '')
+
+  async function handleDone() {
+    if (onDone) {
+      await onDone(draftSelectedRouteId)
+    }
+    onClose?.()
+  }
+
   return (
     <BaseModal
       open={open}
       onClose={onClose}
-      variant="fullscreen"
-      closeOnBackdrop={false}
-      wrapperClassName="flex h-full w-full flex-col"
-      contentClassName="flex h-full w-full flex-col"
+      variant="center"
+      closeOnBackdrop
+      wrapperClassName="flex min-h-full items-end justify-center p-3 sm:items-center sm:p-6"
+      contentClassName="flex max-h-[90dvh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900"
     >
       <div className="border-b border-slate-800 bg-slate-900/95" onClick={(e) => e.stopPropagation()}>
         <div className="flex w-full items-center justify-between gap-3 px-4 py-4 sm:px-6">
@@ -41,7 +51,7 @@ export default function RoutePickerModal({
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => void handleDone()}
             className="rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-100 hover:border-slate-500 sm:px-3 sm:py-2 sm:text-sm"
           >
             Done
@@ -79,9 +89,9 @@ export default function RoutePickerModal({
                   <li key={route.id}>
                     <button
                       type="button"
-                      onClick={() => onSelectRoute(route.id)}
+                      onClick={() => setDraftSelectedRouteId(route.id)}
                       className={`w-full rounded-xl border px-4 py-3 text-left transition ${
-                        route.id === selectedRouteId
+                        route.id === draftSelectedRouteId
                           ? 'border-cyan-500/60 bg-cyan-500/10 text-cyan-200'
                           : 'border-slate-700 bg-slate-900 text-slate-200 hover:border-slate-500 hover:bg-slate-800'
                       }`}

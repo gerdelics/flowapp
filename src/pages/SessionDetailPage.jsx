@@ -322,20 +322,22 @@ export default function SessionDetailPage() {
         </div>
       ) : null}
 
-      <RoutePickerModal
-        open={routePickerOpen}
-        title="Select route"
-        subtitle="Choose a city and then a route to assign."
-        selectedCity={routeCityFilter}
-        onSelectCity={handleCityFilterChange}
-        cityComboboxOpen={routeCityComboboxOpen}
-        onToggleCityCombobox={() => setRouteCityComboboxOpen((prev) => !prev)}
-        cities={routeCities}
-        routes={filteredRoutes}
-        selectedRouteId={session.plannedRouteId || ''}
-        onSelectRoute={handleAttachPlannedRoute}
-        onClose={handleCloseRoutePicker}
-      />
+      {routePickerOpen ? (
+        <RoutePickerModal
+          open={routePickerOpen}
+          title="Select route"
+          subtitle="Choose a city and then a route to assign."
+          selectedCity={routeCityFilter}
+          onSelectCity={handleCityFilterChange}
+          cityComboboxOpen={routeCityComboboxOpen}
+          onToggleCityCombobox={() => setRouteCityComboboxOpen((prev) => !prev)}
+          cities={routeCities}
+          routes={filteredRoutes}
+          selectedRouteId={session.plannedRouteId || ''}
+          onDone={handleAttachPlannedRoute}
+          onClose={handleCloseRoutePicker}
+        />
+      ) : null}
 
       <div className="overflow-x-auto rounded-xl border border-slate-700">
         <table className="min-w-full divide-y divide-slate-700 text-sm">

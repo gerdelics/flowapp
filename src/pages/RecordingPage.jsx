@@ -476,20 +476,22 @@ export default function RecordingPage() {
         </details>
       </section>
 
-      <RoutePickerModal
-        open={routePickerOpen}
-        title="Select route"
-        subtitle="Choose a city and then a route to load."
-        selectedCity={routeCityFilter}
-        onSelectCity={handleCityFilterChange}
-        cityComboboxOpen={routeCityComboboxOpen}
-        onToggleCityCombobox={() => setRouteCityComboboxOpen((prev) => !prev)}
-        cities={routeCities}
-        routes={filteredRoutes}
-        selectedRouteId={selectedOverlayRouteId}
-        onSelectRoute={handleOverlayRouteChange}
-        onClose={closeRoutePicker}
-      />
+      {routePickerOpen ? (
+        <RoutePickerModal
+          open={routePickerOpen}
+          title="Select route"
+          subtitle="Choose a city and then a route to load."
+          selectedCity={routeCityFilter}
+          onSelectCity={handleCityFilterChange}
+          cityComboboxOpen={routeCityComboboxOpen}
+          onToggleCityCombobox={() => setRouteCityComboboxOpen((prev) => !prev)}
+          cities={routeCities}
+          routes={filteredRoutes}
+          selectedRouteId={selectedOverlayRouteId}
+          onDone={handleOverlayRouteChange}
+          onClose={closeRoutePicker}
+        />
+      ) : null}
 
       <div className="grid min-h-[calc(100dvh-9.5rem)] gap-3 md:h-[calc(100dvh-9.5rem)] md:min-h-[620px] md:grid-rows-[2fr_1fr]">
       <section className="grid min-h-0 gap-3 md:grid-cols-[2fr_1fr]">
