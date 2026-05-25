@@ -1,4 +1,4 @@
-import { SyncActionButtons } from '../molecules'
+import SyncActionButtons from './SyncActionButtons'
 
 export default function SessionsToolbar({
   importingArchive,

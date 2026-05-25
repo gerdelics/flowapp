@@ -1,5 +1,6 @@
 export { default as ProviderForm } from './ProviderForm'
 export { default as RouteCityFilterCombobox } from './RouteCityFilterCombobox'
+export { default as RouteEditPanel } from './RouteEditPanel'
 export { default as RouteIdentityFields } from './RouteIdentityFields'
 export { default as RouteListCard } from './RouteListCard'
 export { default as SessionActionButtons } from './SessionActionButtons'
