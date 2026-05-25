@@ -251,20 +251,6 @@ export default function RoutesPage() {
           </div>
         </section>
 
-        {editingRouteId ? (
-          <RouteEditPanel
-            editCity={editCity}
-            setEditCity={setEditCity}
-            editName={editName}
-            setEditName={setEditName}
-            editError={editError}
-            editSaving={editSaving}
-            onSave={handleSaveEdit}
-            onCancel={cancelEdit}
-            onDelete={handleDeleteEditingRoute}
-          />
-        ) : null}
-
         {/* Route list */}
         <section>
           <h2 className="mb-3 text-base font-bold text-slate-100">
@@ -330,6 +316,24 @@ export default function RoutesPage() {
             {saving ? 'Saving…' : 'Save route'}
           </button>
         </form>
+      </OverlayModal>
+
+      <OverlayModal
+        open={Boolean(editingRouteId)}
+        onClose={cancelEdit}
+        title="Edit route"
+      >
+        <RouteEditPanel
+          editCity={editCity}
+          setEditCity={setEditCity}
+          editName={editName}
+          setEditName={setEditName}
+          editError={editError}
+          editSaving={editSaving}
+          onSave={handleSaveEdit}
+          onCancel={cancelEdit}
+          onDelete={handleDeleteEditingRoute}
+        />
       </OverlayModal>
     </>
   )

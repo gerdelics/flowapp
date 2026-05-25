@@ -1,3 +1,4 @@
+import BaseModal from './BaseModal'
 import { RouteCityFilterCombobox } from '../molecules'
 
 export default function RoutePickerModal({
@@ -14,12 +15,15 @@ export default function RoutePickerModal({
   onSelectRoute,
   onClose,
 }) {
-  if (!open) {
-    return null
-  }
-
   return (
-    <div className="fixed inset-0 z-[2000] flex flex-col bg-slate-950">
+    <BaseModal
+      open={open}
+      onClose={onClose}
+      variant="fullscreen"
+      closeOnBackdrop={false}
+      wrapperClassName="flex h-full w-full flex-col"
+      contentClassName="flex h-full w-full flex-col"
+    >
       <div className="border-b border-slate-800 bg-slate-900/95" onClick={(e) => e.stopPropagation()}>
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
           <button
@@ -92,6 +96,7 @@ export default function RoutePickerModal({
           </div>
         </div>
       </div>
-    </div>
+
+    </BaseModal>
   )
 }
