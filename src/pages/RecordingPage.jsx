@@ -592,7 +592,7 @@ export default function RecordingPage() {
       {/* Route picker modal */}
       {routePickerOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 sm:items-center"
+          className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/60 sm:items-center"
           onClick={() => setRoutePickerOpen(false)}
         >
           <div
@@ -600,13 +600,13 @@ export default function RecordingPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm font-bold text-slate-100">Útvonal kiválasztása</p>
+              <p className="text-sm font-bold text-slate-100">Select route</p>
               <button
                 type="button"
                 onClick={() => setRoutePickerOpen(false)}
                 className="text-sm text-slate-500 hover:text-slate-200"
               >
-                Mégse
+                Cancel
               </button>
             </div>
 
@@ -615,7 +615,7 @@ export default function RecordingPage() {
               onChange={(e) => handleCityFilterChange(e.target.value)}
               className="mb-3 w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-cyan-500 focus:outline-none"
             >
-              <option value="">— Összes város —</option>
+              <option value="">— All cities —</option>
               {routeCities.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
@@ -623,7 +623,7 @@ export default function RecordingPage() {
 
             <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto">
               {filteredRoutes.length === 0 ? (
-                <li className="py-2 text-center text-sm text-slate-500">Nincs útvonal</li>
+                <li className="py-2 text-center text-sm text-slate-500">No routes</li>
               ) : (
                 filteredRoutes.map((r) => (
                   <li key={r.id}>
@@ -764,7 +764,7 @@ export default function RecordingPage() {
               {selectedOverlayRouteId ? (
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-xs text-slate-500">Betöltött útvonal</p>
+                    <p className="text-xs text-slate-500">Loaded route</p>
                     <p className="truncate text-sm font-semibold text-orange-400">
                       {savedRoutes.find((r) => r.id === selectedOverlayRouteId)?.name}
                     </p>
@@ -775,14 +775,14 @@ export default function RecordingPage() {
                       onClick={() => setRoutePickerOpen(true)}
                       className="text-xs text-slate-400 hover:text-slate-200"
                     >
-                      Csere
+                      Replace
                     </button>
                     <button
                       type="button"
                       onClick={handleClearOverlayRoute}
                       className="text-xs text-slate-500 hover:text-red-400"
                     >
-                      Eltávolítás
+                      Remove
                     </button>
                   </div>
                 </div>
@@ -792,7 +792,7 @@ export default function RecordingPage() {
                   onClick={() => setRoutePickerOpen(true)}
                   className="text-sm text-slate-400 hover:text-slate-100"
                 >
-                  + Útvonal betöltése
+                  + Load route
                 </button>
               )}
             </div>

@@ -11,6 +11,7 @@ import { useInstallPrompt } from '../hooks/useInstallPrompt'
 import { useSettings } from '../hooks/useSettings'
 import { exportLegacyCsv } from '../utils/csvExport'
 import { parseGpx } from '../utils/gpxParser'
+import { getDefaultProviderIconUrl } from '../utils/providerIconDefaults'
 
 export default function SettingsPage() {
   const {
@@ -22,7 +23,7 @@ export default function SettingsPage() {
     toggleProvider,
     addProvider,
     deleteProvider,
-    updateProviderIcon,
+    updateProvider,
     reorderProviders,
     setAzureConfig,
     reload,
@@ -37,6 +38,13 @@ export default function SettingsPage() {
   const [dropTargetPosition, setDropTargetPosition] = useState('before')
   const [demoLoading, setDemoLoading] = useState(false)
   const [demoMessage, setDemoMessage] = useState('')
+  const [isAddProviderModalOpen, setIsAddProviderModalOpen] = useState(false)
+  const [isEditProviderModalOpen, setIsEditProviderModalOpen] = useState(false)
+  const [editingProviderId, setEditingProviderId] = useState(null)
+  const [editNameInput, setEditNameInput] = useState('')
+  const [editCsvNameInput, setEditCsvNameInput] = useState('')
+  const [editIconUrlInput, setEditIconUrlInput] = useState('')
+  const [editActiveInput, setEditActiveInput] = useState(true)
 
   if (loading || !settings) {
     return <p>Loading settings…</p>
@@ -44,9 +52,14 @@ export default function SettingsPage() {
 
   async function handleAddProvider(event) {
     event.preventDefault()
+    if (!nameInput.trim() || !csvNameInput.trim()) {
+      return
+    }
+
     await addProvider(nameInput, csvNameInput)
     setNameInput('')
     setCsvNameInput('')
+    setIsAddProviderModalOpen(false)
   }
 
   async function handleClear() {
@@ -68,16 +81,45 @@ export default function SettingsPage() {
     await geolocation.requestOnce()
   }
 
-  async function handleProviderIconUpload(providerId, file) {
-    if (!file) {
+  function openAddProviderModal() {
+    setNameInput('')
+    setCsvNameInput('')
+    setIsAddProviderModalOpen(true)
+  }
+
+  function openEditProviderModal(provider) {
+    setEditingProviderId(provider.id)
+    setEditNameInput(provider.name || '')
+    setEditCsvNameInput(provider.csvName || '')
+    setEditIconUrlInput(provider.iconUrl || '')
+    setEditActiveInput(Boolean(provider.active))
+    setIsEditProviderModalOpen(true)
+  }
+
+  function closeEditProviderModal() {
+    setIsEditProviderModalOpen(false)
+    setEditingProviderId(null)
+    setEditNameInput('')
+    setEditCsvNameInput('')
+    setEditIconUrlInput('')
+    setEditActiveInput(true)
+  }
+
+  async function handleSaveProviderEdits(event) {
+    event.preventDefault()
+
+    if (!editingProviderId || !editNameInput.trim() || !editCsvNameInput.trim()) {
       return
     }
 
-    const reader = new FileReader()
-    reader.onload = async () => {
-      await updateProviderIcon(providerId, typeof reader.result === 'string' ? reader.result : '')
-    }
-    reader.readAsDataURL(file)
+    await updateProvider(editingProviderId, {
+      name: editNameInput,
+      csvName: editCsvNameInput,
+      iconUrl: editIconUrlInput.trim(),
+      active: editActiveInput,
+    })
+
+    closeEditProviderModal()
   }
 
   async function handleLoadDemoData() {
@@ -97,18 +139,18 @@ export default function SettingsPage() {
       const [gpxResponse, archiveResponse] = await Promise.all([fetch(gpxUrl), fetch(archiveUrl)])
 
       if (!gpxResponse.ok) {
-        throw new Error('A demo GPX fájl nem érhető el.')
+        throw new Error('Demo GPX file is not available.')
       }
 
       if (!archiveResponse.ok) {
-        throw new Error('A demo JSON fájl nem érhető el.')
+        throw new Error('Demo JSON file is not available.')
       }
 
       const [gpxText, archive] = await Promise.all([gpxResponse.text(), archiveResponse.json()])
       const points = parseGpx(gpxText)
 
       if (!points.length) {
-        throw new Error('A demo GPX nem tartalmaz használható pontokat.')
+        throw new Error('Demo GPX does not contain usable points.')
       }
 
       const routeId = archive?.session?.plannedRouteId || crypto.randomUUID()
@@ -126,10 +168,10 @@ export default function SettingsPage() {
       await setSessionPlannedRoute(imported.session.id, route.id)
 
       setDemoMessage(
-        `Demo import kész: útvonal (${route.name}) létrehozva, session importálva (${imported.importedEntryCount} bejegyzés).`,
+        `Demo import complete: route (${route.name}) created, session imported (${imported.importedEntryCount} entries).`,
       )
     } catch (error) {
-      setDemoMessage(error?.message || 'A demo adatok betöltése sikertelen.')
+      setDemoMessage(error?.message || 'Failed to load demo data.')
     } finally {
       setDemoLoading(false)
     }
@@ -176,6 +218,148 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
+      {isAddProviderModalOpen ? (
+        <div
+          className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/60 sm:items-center"
+          onClick={() => setIsAddProviderModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-t-2xl border border-slate-700 bg-slate-900 p-5 sm:rounded-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-base font-bold text-slate-100">Add new provider</p>
+              <button
+                type="button"
+                onClick={() => setIsAddProviderModalOpen(false)}
+                className="text-sm text-slate-500 hover:text-slate-200"
+              >
+                Cancel
+              </button>
+            </div>
+
+            <form onSubmit={handleAddProvider} className="space-y-3">
+              <label className="block text-sm text-slate-300">
+                Provider name
+                <input
+                  type="text"
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2"
+                />
+              </label>
+
+              <label className="block text-sm text-slate-300">
+                CSV name
+                <input
+                  type="text"
+                  value={csvNameInput}
+                  onChange={(e) => setCsvNameInput(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2"
+                />
+              </label>
+
+              <button
+                type="submit"
+                className="w-full rounded-md bg-cyan-500 px-3 py-2 font-semibold text-slate-950"
+              >
+                Save provider
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {isEditProviderModalOpen ? (
+        <div
+          className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/60 sm:items-center"
+          onClick={closeEditProviderModal}
+        >
+          <div
+            className="w-full max-w-md rounded-t-2xl border border-slate-700 bg-slate-900 p-5 sm:rounded-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-base font-bold text-slate-100">Edit provider</p>
+              <button
+                type="button"
+                onClick={closeEditProviderModal}
+                className="text-sm text-slate-500 hover:text-slate-200"
+              >
+                Cancel
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveProviderEdits} className="space-y-3">
+              <label className="block text-sm text-slate-300">
+                Provider name
+                <input
+                  type="text"
+                  value={editNameInput}
+                  onChange={(e) => setEditNameInput(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2"
+                />
+              </label>
+
+              <label className="block text-sm text-slate-300">
+                CSV name
+                <input
+                  type="text"
+                  value={editCsvNameInput}
+                  onChange={(e) => setEditCsvNameInput(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2"
+                />
+              </label>
+
+              <label className="block text-sm text-slate-300">
+                Icon URL
+                <input
+                  type="url"
+                  inputMode="url"
+                  placeholder="https://..."
+                  value={editIconUrlInput}
+                  onChange={(e) => setEditIconUrlInput(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2"
+                />
+              </label>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditIconUrlInput(getDefaultProviderIconUrl(editNameInput))}
+                  className="rounded bg-slate-700 px-2 py-1 text-xs"
+                >
+                  Default icon
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditIconUrlInput('')}
+                  className="rounded bg-slate-700 px-2 py-1 text-xs"
+                >
+                  Remove icon
+                </button>
+              </div>
+
+              <label className="mt-1 flex items-center gap-2 text-sm text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={editActiveInput}
+                  onChange={(e) => setEditActiveInput(e.target.checked)}
+                />
+                Provider active
+              </label>
+
+              <button
+                type="submit"
+                className="w-full rounded-md bg-cyan-500 px-3 py-2 font-semibold text-slate-950"
+              >
+                Save changes
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
       <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
         <h2 className="text-xl font-semibold">General</h2>
         <label className="mt-3 block text-sm text-slate-300">
@@ -272,7 +456,7 @@ export default function SettingsPage() {
 
           {!canInstall && !isInstalled ? (
             <p className="mt-2 text-xs text-slate-400">
-              A natív install prompt most nem érhető el, de a böngésző menüjéből telepíthető lehet.
+              Native install prompt is currently unavailable, but you may be able to install from the browser menu.
             </p>
           ) : null}
         </div>
@@ -350,26 +534,10 @@ export default function SettingsPage() {
                     ) : (
                       <div className="h-8 w-8 rounded bg-slate-700" />
                     )}
-                    <p className="font-medium">{provider.name}</p>
-                  </div>
-                  <p className="text-xs text-slate-400">CSV: {provider.csvName}</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <label className="cursor-pointer rounded bg-slate-700 px-2 py-1 text-xs">
-                      Upload icon
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => handleProviderIconUpload(provider.id, e.target.files?.[0])}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => updateProviderIcon(provider.id, '')}
-                      className="rounded bg-slate-700 px-2 py-1 text-xs"
-                    >
-                      Remove icon
-                    </button>
+                    <p className="font-medium">
+                      {provider.name}{' '}
+                      <span className="text-xs text-slate-400">({provider.csvName})</span>
+                    </p>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -379,6 +547,13 @@ export default function SettingsPage() {
                     className="rounded-md bg-slate-700 px-3 py-1.5 text-sm"
                   >
                     {provider.active ? 'Active' : 'Inactive'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openEditProviderModal(provider)}
+                    className="rounded-md bg-slate-700 px-3 py-1.5 text-sm"
+                  >
+                    Edit
                   </button>
                   <button
                     type="button"
@@ -410,28 +585,13 @@ export default function SettingsPage() {
           ))}
         </div>
 
-        <form onSubmit={handleAddProvider} className="mt-4 grid gap-2 md:grid-cols-3">
-          <input
-            type="text"
-            placeholder="Provider name"
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            className="rounded-md border border-slate-600 bg-slate-800 px-3 py-2"
-          />
-          <input
-            type="text"
-            placeholder="CSV name"
-            value={csvNameInput}
-            onChange={(e) => setCsvNameInput(e.target.value)}
-            className="rounded-md border border-slate-600 bg-slate-800 px-3 py-2"
-          />
-          <button
-            type="submit"
-            className="rounded-md bg-cyan-500 px-3 py-2 font-semibold text-slate-950"
-          >
-            Add provider
-          </button>
-        </form>
+        <button
+          type="button"
+          onClick={openAddProviderModal}
+          className="mt-4 px-0 text-sm font-semibold text-cyan-400 hover:text-cyan-300"
+        >
+          + Add new provider
+        </button>
       </section>
 
       <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
@@ -459,7 +619,7 @@ export default function SettingsPage() {
       <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
         <h2 className="text-xl font-semibold">Demo Data</h2>
         <p className="mt-2 text-sm text-slate-400">
-          Betölti a demo útvonalat (Tiszakécske / Arterial 1) GPX-ből és importálja a session JSON-t.
+          Loads the demo route (Tiszakécske / Arterial 1) from GPX and imports the session JSON.
         </p>
 
         <button
@@ -468,7 +628,7 @@ export default function SettingsPage() {
           onClick={handleLoadDemoData}
           className="mt-3 rounded-md bg-violet-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
         >
-          {demoLoading ? 'Demo betöltés…' : 'Load demo data'}
+          {demoLoading ? 'Loading demo…' : 'Load demo data'}
         </button>
 
         {demoMessage ? (

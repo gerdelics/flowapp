@@ -55,7 +55,7 @@ function RouteCard({ route, isSelected, onClick, onEdit, lengthKm }) {
       <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{route.city}</p>
       <p className="mt-1 text-base font-bold text-slate-100">{route.name}</p>
       <p className="mt-1 text-xs text-slate-500">
-        {route.points?.length ?? 0} pont &bull; {lengthKm.toFixed(2)} km &bull;{' '}
+        {route.points?.length ?? 0} points &bull; {lengthKm.toFixed(2)} km &bull;{' '}
         {new Date(route.createdAt).toLocaleDateString()}
       </p>
       <span
@@ -65,7 +65,7 @@ function RouteCard({ route, isSelected, onClick, onEdit, lengthKm }) {
           onEdit(route)
         }}
       >
-        Szerkesztés
+        Edit
       </span>
     </button>
   )
@@ -106,7 +106,7 @@ export default function RoutesPage() {
 
   const routeCities = useMemo(() => {
     const unique = Array.from(new Set(routes.map((route) => route.city).filter(Boolean)))
-    return unique.sort((a, b) => a.localeCompare(b, 'hu'))
+    return unique.sort((a, b) => a.localeCompare(b, 'en'))
   }, [routes])
 
   const filteredRoutes = useMemo(() => {
@@ -142,7 +142,7 @@ export default function RoutesPage() {
       const text = await gpxFile.text()
       const points = parseGpx(text)
       if (points.length === 0) {
-        setGpxError('A GPX fájlban nem találhatók útvonalpontok.')
+        setGpxError('No route points were found in the GPX file.')
         return
       }
 
@@ -165,7 +165,7 @@ export default function RoutesPage() {
       }
       await loadRoutes()
     } catch (err) {
-      setGpxError(err.message || 'Hiba a GPX fájl feldolgozásakor.')
+      setGpxError(err.message || 'Error while processing the GPX file.')
     } finally {
       setSaving(false)
     }
@@ -209,7 +209,7 @@ export default function RoutesPage() {
     try {
       const existing = await db.routes.get(editingRouteId)
       if (!existing) {
-        setEditError('Az útvonal nem található.')
+        setEditError('Route not found.')
         return
       }
 
@@ -232,7 +232,7 @@ export default function RoutesPage() {
       await loadRoutes()
       cancelEdit()
     } catch (error) {
-      setEditError(error?.message || 'Sikertelen mentés.')
+      setEditError(error?.message || 'Failed to save.')
     } finally {
       setEditSaving(false)
     }
@@ -243,7 +243,7 @@ export default function RoutesPage() {
       return
     }
 
-    const confirmed = window.confirm('Biztosan törlöd ezt az útvonalat?')
+    const confirmed = window.confirm('Are you sure you want to delete this route?')
     if (!confirmed) {
       return
     }
@@ -263,26 +263,26 @@ export default function RoutesPage() {
       <div className="flex flex-col gap-6">
         <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-base font-bold text-slate-100">Útvonalak</h2>
+            <h2 className="text-base font-bold text-slate-100">Routes</h2>
             <button
               type="button"
               onClick={() => setAddModalOpen(true)}
               className="rounded-lg bg-cyan-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-cyan-500"
             >
-              + Új útvonal
+              + New route
             </button>
           </div>
 
           <div className="mt-3">
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Szűrés városra
+              Filter by city
             </label>
             <select
               value={cityFilter}
               onChange={(e) => setCityFilter(e.target.value)}
               className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-cyan-500 focus:outline-none"
             >
-              <option value="">Összes város</option>
+              <option value="">All cities</option>
               {routeCities.map((cityName) => (
                 <option key={cityName} value={cityName}>
                   {cityName}
@@ -294,20 +294,20 @@ export default function RoutesPage() {
 
         {editingRouteId ? (
           <section className="rounded-xl border border-orange-500/50 bg-slate-900 p-4">
-            <h3 className="mb-3 text-sm font-bold text-orange-300">Útvonal szerkesztése</h3>
+            <h3 className="mb-3 text-sm font-bold text-orange-300">Edit route</h3>
             <div className="flex flex-col gap-3">
               <input
                 type="text"
                 value={editCity}
                 onChange={(e) => setEditCity(e.target.value)}
-                placeholder="Város"
+                placeholder="City"
                 className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
               />
               <input
                 type="text"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                placeholder="Útvonal neve"
+                placeholder="Route name"
                 className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
               />
               {editError ? <p className="text-xs text-red-400">{editError}</p> : null}
@@ -318,7 +318,7 @@ export default function RoutesPage() {
                   onClick={handleSaveEdit}
                   className="rounded-lg bg-orange-500 px-3 py-2 text-sm font-bold text-slate-950 transition hover:bg-orange-400 disabled:opacity-50"
                 >
-                  {editSaving ? 'Mentés…' : 'Mentés'}
+                  {editSaving ? 'Saving…' : 'Save'}
                 </button>
                 <button
                   type="button"
@@ -326,7 +326,7 @@ export default function RoutesPage() {
                   onClick={cancelEdit}
                   className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-300 hover:border-slate-500 hover:text-slate-100"
                 >
-                  Mégse
+                  Cancel
                 </button>
                 <button
                   type="button"
@@ -334,7 +334,7 @@ export default function RoutesPage() {
                   onClick={handleDeleteEditingRoute}
                   className="rounded-lg border border-red-500/50 px-3 py-2 text-sm text-red-300 hover:border-red-400 hover:text-red-200"
                 >
-                  Útvonal törlése
+                  Delete route
                 </button>
               </div>
             </div>
@@ -344,11 +344,11 @@ export default function RoutesPage() {
         {/* Route list */}
         <section>
           <h2 className="mb-3 text-base font-bold text-slate-100">
-            Mentett útvonalak{filteredRoutes.length > 0 ? ` (${filteredRoutes.length})` : ''}
+            Saved routes{filteredRoutes.length > 0 ? ` (${filteredRoutes.length})` : ''}
           </h2>
 
           {filteredRoutes.length === 0 ? (
-            <p className="text-sm text-slate-500">Még nincs mentett útvonal.</p>
+            <p className="text-sm text-slate-500">No saved routes yet.</p>
           ) : (
             <ul className="flex flex-col gap-3">
               {filteredRoutes.map((route) => (
@@ -369,14 +369,14 @@ export default function RoutesPage() {
                         onClick={() => handleDelete(route.id)}
                         className="rounded bg-red-600 px-2 py-1 text-xs font-bold text-white hover:bg-red-500"
                       >
-                        Törlés megerősítése
+                        Confirm delete
                       </button>
                       <button
                         type="button"
                         onClick={() => setDeleteConfirm(null)}
                         className="rounded bg-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-600"
                       >
-                        Mégse
+                        Cancel
                       </button>
                     </div>
                   ) : (
@@ -410,7 +410,7 @@ export default function RoutesPage() {
           />
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-slate-500">
-            Válassz egy útvonalat a megjelenítéshez
+            Select a route to preview
           </div>
         )}
       </div>
@@ -428,26 +428,26 @@ export default function RoutesPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-base font-bold text-slate-100">Új útvonal hozzáadása</h3>
+                <h3 className="text-base font-bold text-slate-100">Add new route</h3>
                 <button
                   type="button"
                   onClick={closeAddModal}
                   className="text-sm text-slate-400 hover:text-slate-100"
                 >
-                  Bezárás
+                  Close
                 </button>
               </div>
 
               <form onSubmit={handleSave} className="flex flex-col gap-3">
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    Város
+                    City
                   </label>
                   <input
                     type="text"
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    placeholder="pl. Budapest"
+                    placeholder="e.g. Budapest"
                     className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
                     required
                   />
@@ -455,13 +455,13 @@ export default function RoutesPage() {
 
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    Útvonal neve
+                    Route name
                   </label>
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="pl. Belváros körút"
+                    placeholder="e.g. Downtown loop"
                     className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
                     required
                   />
@@ -469,7 +469,7 @@ export default function RoutesPage() {
 
                 <div>
                   <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    GPX fájl
+                    GPX file
                   </label>
                   <input
                     ref={fileInputRef}
@@ -487,7 +487,7 @@ export default function RoutesPage() {
                   disabled={saving || !city.trim() || !name.trim() || !gpxFile}
                   className="min-h-10 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:opacity-50"
                 >
-                  {saving ? 'Mentés…' : 'Útvonal mentése'}
+                  {saving ? 'Saving…' : 'Save route'}
                 </button>
               </form>
             </section>

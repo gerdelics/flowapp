@@ -64,10 +64,10 @@ export function useInstallPrompt() {
 
   function triggerUninstallHelp() {
     const message =
-      'A webalkalmazás eltávolítása a készülék rendszerében történik.\n\n' +
-      'Android: hosszan nyomd az app ikonját → App info → Uninstall.\n' +
-      'Windows: Start menü → jobb klikk az appon → Uninstall.\n' +
-      'iOS: hosszan nyomd az ikont → Remove App.'
+      'Removing the web app is done through your device system settings.\n\n' +
+      'Android: long-press the app icon → App info → Uninstall.\n' +
+      'Windows: Start menu → right-click the app → Uninstall.\n' +
+      'iOS: long-press the icon → Remove App.'
 
     window.alert(message)
     return true
@@ -75,12 +75,12 @@ export function useInstallPrompt() {
 
   function triggerInstallHelp() {
     const message =
-      'Az install prompt jelenleg nem elérhető.\n\n' +
-      'Lehetséges okok:\n' +
-      '- A böngésző még nem adta ki a telepítési promptot\n' +
-      '- Nem HTTPS/domain környezetben fut az app\n' +
-      '- A platform nem támogatja a beforeinstallprompt eseményt\n\n' +
-      'Próbáld a böngésző menüjéből: Install app / Add to home screen.'
+      'The install prompt is currently unavailable.\n\n' +
+      'Possible reasons:\n' +
+      '- The browser has not issued the install prompt yet\n' +
+      '- The app is not running in an HTTPS/domain environment\n' +
+      '- The platform does not support the beforeinstallprompt event\n\n' +
+      'Try installing from the browser menu: Install app / Add to home screen.'
 
     window.alert(message)
     return true

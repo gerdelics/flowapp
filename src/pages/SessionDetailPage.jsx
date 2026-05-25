@@ -122,7 +122,7 @@ export default function SessionDetailPage() {
 
   const routeCities = useMemo(() => {
     const set = new Set(savedRoutes.map((route) => route.city).filter(Boolean))
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'hu'))
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'en'))
   }, [savedRoutes])
 
   const filteredRoutes = useMemo(() => {
@@ -292,7 +292,7 @@ export default function SessionDetailPage() {
               onClick={() => setRoutePickerOpen(true)}
               className="text-xs text-slate-300 hover:text-white"
             >
-              {session.plannedRouteId ? 'Csere' : 'Hozzáadás'}
+              {session.plannedRouteId ? 'Replace' : 'Add'}
             </button>
             {session.plannedRouteId ? (
               <button
@@ -300,7 +300,7 @@ export default function SessionDetailPage() {
                 onClick={() => handleAttachPlannedRoute(null)}
                 className="text-xs text-slate-500 hover:text-red-400"
               >
-                Eltávolítás
+                Remove
               </button>
             ) : null}
           </div>
@@ -357,13 +357,13 @@ export default function SessionDetailPage() {
               onClick={(event) => event.stopPropagation()}
             >
               <div className="mb-4 flex items-center justify-between">
-                <p className="text-sm font-bold text-slate-100">Útvonal hozzárendelése</p>
+                <p className="text-sm font-bold text-slate-100">Assign route</p>
                 <button
                   type="button"
                   onClick={() => setRoutePickerOpen(false)}
                   className="text-sm text-slate-500 hover:text-slate-200"
                 >
-                  Mégse
+                  Cancel
                 </button>
               </div>
 
@@ -372,7 +372,7 @@ export default function SessionDetailPage() {
                 onChange={(event) => setRouteCityFilter(event.target.value)}
                 className="mb-3 w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-cyan-500 focus:outline-none"
               >
-                <option value="">— Összes város —</option>
+                <option value="">— All cities —</option>
                 {routeCities.map((city) => (
                   <option key={city} value={city}>
                     {city}
@@ -382,7 +382,7 @@ export default function SessionDetailPage() {
 
               <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto">
                 {filteredRoutes.length === 0 ? (
-                  <li className="py-2 text-center text-sm text-slate-500">Nincs útvonal</li>
+                  <li className="py-2 text-center text-sm text-slate-500">No routes</li>
                 ) : (
                   filteredRoutes.map((route) => (
                     <li key={route.id}>

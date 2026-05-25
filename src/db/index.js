@@ -1,5 +1,6 @@
 import Dexie from 'dexie'
 import { v4 as uuidv4 } from 'uuid'
+import { getDefaultProviderIconUrl } from '../utils/providerIconDefaults'
 
 export const MAX_SYNC_ATTEMPTS = 5
 
@@ -9,29 +10,35 @@ const DEFAULT_PROVIDERS = [
     name: 'Google Maps',
     csvName: 'Google',
     active: true,
-    iconUrl: '/icons/google-maps.svg',
+    iconUrl: getDefaultProviderIconUrl('Google Maps'),
   },
   {
     id: uuidv4(),
     name: 'TomTom Drive',
     csvName: 'TomTom',
     active: true,
-    iconUrl: '/icons/tomtom-drive.svg',
+    iconUrl: getDefaultProviderIconUrl('TomTom Drive'),
   },
   {
     id: uuidv4(),
     name: 'HERE We Go',
     csvName: 'HERE_WeGo',
     active: true,
-    iconUrl: '/icons/here-wego.svg',
+    iconUrl: getDefaultProviderIconUrl('HERE We Go'),
   },
-  { id: uuidv4(), name: 'Waze', csvName: 'Waze', active: true, iconUrl: '/icons/waze.svg' },
+  {
+    id: uuidv4(),
+    name: 'Waze',
+    csvName: 'Waze',
+    active: true,
+    iconUrl: getDefaultProviderIconUrl('Waze'),
+  },
   {
     id: uuidv4(),
     name: 'Apple Maps',
     csvName: 'Apple',
     active: false,
-    iconUrl: '/icons/apple-maps.svg',
+    iconUrl: getDefaultProviderIconUrl('Apple Maps'),
   },
 ]
 
@@ -50,9 +57,10 @@ function withSettingsDefaults(settings) {
 
   const providers = (base.providers || []).map((provider) => {
     const fallback = DEFAULT_PROVIDERS.find((item) => item.name === provider.name)
+    const isLegacyLocalIcon = typeof provider.iconUrl === 'string' && provider.iconUrl.startsWith('/icons/')
     return {
       ...provider,
-      iconUrl: provider.iconUrl || fallback?.iconUrl || '',
+      iconUrl: !provider.iconUrl || isLegacyLocalIcon ? fallback?.iconUrl || '' : provider.iconUrl,
     }
   })
 

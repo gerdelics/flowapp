@@ -95,7 +95,7 @@ export function useGeolocation() {
 
   const requestOnce = useCallback(async () => {
     if (!available) {
-      setError('Geolocation API nem érhető el ebben a böngészőben.')
+      setError('Geolocation API is not available in this browser.')
       return null
     }
 

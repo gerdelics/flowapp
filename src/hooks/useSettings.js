@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ensureSettings, updateSettings } from '../db'
+import { getDefaultProviderIconUrl } from '../utils/providerIconDefaults'
 
 function moveItem(items, fromIndex, toIndex) {
   if (fromIndex === toIndex) {
@@ -63,12 +64,14 @@ export function useSettings() {
       return settings
     }
 
+    const trimmedName = name.trim()
+
     const provider = {
       id: crypto.randomUUID(),
-      name: name.trim(),
+      name: trimmedName,
       csvName: csvName.trim(),
       active: true,
-      iconUrl: '',
+      iconUrl: getDefaultProviderIconUrl(trimmedName),
     }
 
     return patchSettings({ providers: [...settings.providers, provider] })
@@ -94,6 +97,26 @@ export function useSettings() {
         ? { ...provider, iconUrl: iconUrl || '' }
         : provider,
     )
+    return patchSettings({ providers: nextProviders })
+  }
+
+  async function updateProvider(providerId, patch) {
+    const nextProviders = settings.providers.map((provider) => {
+      if (provider.id !== providerId) {
+        return provider
+      }
+
+      const nextName = typeof patch?.name === 'string' ? patch.name.trim() : provider.name
+      const nextCsvName = typeof patch?.csvName === 'string' ? patch.csvName.trim() : provider.csvName
+
+      return {
+        ...provider,
+        ...patch,
+        name: nextName || provider.name,
+        csvName: nextCsvName || provider.csvName,
+      }
+    })
+
     return patchSettings({ providers: nextProviders })
   }
 
@@ -126,6 +149,7 @@ export function useSettings() {
     setAzureConfig,
     setManualBeepEnabled,
     updateProviderIcon,
+    updateProvider,
     reorderProviders,
     reload: async () => setSettings(await ensureSettings()),
   }
