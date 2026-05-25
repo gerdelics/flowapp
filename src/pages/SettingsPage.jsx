@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { IconAvatar, ProviderForm } from '../components'
+import { IconAvatar, PanelSection, ProviderForm } from '../components'
 import { OverlayModal } from '../components'
 import {
   clearAllData,
@@ -257,8 +257,7 @@ export default function SettingsPage() {
         />
       </OverlayModal>
 
-      <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
-        <h2 className="text-xl font-semibold">General</h2>
+      <PanelSection title="General">
         <label className="mt-3 block text-sm text-slate-300">
           Observer name
           <input
@@ -357,10 +356,9 @@ export default function SettingsPage() {
             </p>
           ) : null}
         </div>
-      </section>
+      </PanelSection>
 
-      <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
-        <h2 className="text-xl font-semibold">Providers</h2>
+      <PanelSection title="Providers">
         <p className="mt-2 text-sm text-slate-400">
           Drag and drop a provider to change its order.
         </p>
@@ -481,10 +479,9 @@ export default function SettingsPage() {
         >
           + Add new provider
         </button>
-      </section>
+      </PanelSection>
 
-      <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
-        <h2 className="text-xl font-semibold">Azure Sync Settings</h2>
+      <PanelSection title="Azure Sync Settings">
         <label className="mt-3 block text-sm text-slate-300">
           Endpoint URL
           <input
@@ -503,10 +500,9 @@ export default function SettingsPage() {
             className="mt-1 w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2"
           />
         </label>
-      </section>
+      </PanelSection>
 
-      <section className="rounded-xl border border-slate-700 bg-slate-900 p-4">
-        <h2 className="text-xl font-semibold">Demo Data</h2>
+      <PanelSection title="Demo Data">
         <p className="mt-2 text-sm text-slate-400">
           Loads the demo route (Tiszakécske / Arterial 1) from GPX and imports the session JSON.
         </p>
@@ -523,10 +519,13 @@ export default function SettingsPage() {
         {demoMessage ? (
           <p className="mt-3 text-sm text-slate-200">{demoMessage}</p>
         ) : null}
-      </section>
+      </PanelSection>
 
-      <section className="rounded-xl border border-red-700 bg-red-950/40 p-4">
-        <h2 className="text-xl font-semibold text-red-300">Danger Zone</h2>
+      <PanelSection
+        title="Danger Zone"
+        className="rounded-xl border border-red-700 bg-red-950/40 p-4"
+        titleClassName="text-xl font-semibold text-red-300"
+      >
         <button
           type="button"
           onClick={handleExportAll}
@@ -541,7 +540,7 @@ export default function SettingsPage() {
         >
           Clear all data
         </button>
-      </section>
+      </PanelSection>
     </div>
   )
 }
