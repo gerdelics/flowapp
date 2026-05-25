@@ -3,11 +3,11 @@ import { useAutoRecord } from '../hooks/useAutoRecord'
 import { useGeolocation } from '../hooks/useGeolocation'
 import { useSession } from '../hooks/useSession'
 import { useSettings } from '../hooks/useSettings'
-import { IconAvatar, TrafficLevelBadge, TrafficLevelSelector } from '../components'
-import { RoutePickerModal } from '../components'
+import { RouteOverlayLoader, TrafficLevelSelector } from '../components'
+import { RecordToast, RoutePickerModal } from '../components'
 import RouteMap from '../components/RouteMap'
 import { db } from '../db'
-import { getTrafficLevel } from '../utils/trafficLevels'
+import { playNotificationBeep } from '../utils/audio'
 
 function sanitizePath(path) {
   if (!Array.isArray(path)) {
@@ -15,95 +15,6 @@ function sanitizePath(path) {
   }
 
   return path.filter((point) => typeof point?.lat === 'number' && typeof point?.lon === 'number')
-}
-
-function RecordLevelRow({ name, levelKey, iconUrl }) {
-  const level = getTrafficLevel(levelKey)
-
-  return (
-    <li className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2 shadow-sm ${level.toastClassName}`}>
-      <div className="flex min-w-0 items-center gap-2">
-        <IconAvatar src={iconUrl} sizeClassName="h-6 w-6" className="p-0.5" />
-        <span className="truncate text-sm font-semibold">{name}</span>
-      </div>
-
-      <TrafficLevelBadge level={level.key} compact className="shrink-0 bg-black/15" />
-    </li>
-  )
-}
-
-function RecordToast({ record, onDismiss }) {
-  if (!record) {
-    return null
-  }
-
-  const channelLabel = record.channel === 'auto' ? 'Automatic reporting' : 'Manual reporting'
-
-  return (
-    <div className="pointer-events-none fixed inset-x-3 top-3 z-50 flex justify-center md:inset-x-auto md:right-4 md:justify-end">
-      <div className="pointer-events-auto w-full max-w-2xl rounded-2xl border border-cyan-500/30 bg-slate-950/95 p-4 shadow-2xl shadow-slate-950/60 backdrop-blur">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300">
-              {channelLabel}
-            </p>
-            <p className="mt-1 text-base font-bold text-slate-50">New record saved</p>
-            <p className="mt-1 text-xs text-slate-400">
-              {new Date(record.timestamp).toLocaleString()}
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={onDismiss}
-            className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-300 transition hover:border-slate-500 hover:text-white"
-          >
-            Dismiss
-          </button>
-        </div>
-
-        <ul className="mt-4 flex flex-col gap-2">
-          <RecordLevelRow name="Observer" levelKey={record.observerAssessment} />
-
-          {(record.providers || []).length ? (
-            record.providers.map((provider) => (
-              <RecordLevelRow
-                key={`${provider.name}-${provider.level}`}
-                name={provider.name}
-                levelKey={provider.level}
-                iconUrl={provider.iconUrl}
-              />
-            ))
-          ) : (
-            <li className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-400">
-              No active providers were selected
-            </li>
-          )}
-        </ul>
-      </div>
-    </div>
-  )
-}
-
-function playBeep() {
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext
-  if (!AudioContextClass) {
-    return
-  }
-
-  const context = new AudioContextClass()
-  const oscillator = context.createOscillator()
-  const gain = context.createGain()
-
-  oscillator.type = 'sine'
-  oscillator.frequency.value = 1040
-  gain.gain.value = 0.06
-
-  oscillator.connect(gain)
-  gain.connect(context.destination)
-
-  oscillator.start()
-  oscillator.stop(context.currentTime + 0.12)
 }
 
 export default function RecordingPage() {
@@ -497,7 +408,7 @@ export default function RecordingPage() {
     }
 
     if (manualBeepEnabled && !manualExpiryBeepedRef.current) {
-      playBeep()
+      playNotificationBeep()
       manualExpiryBeepedRef.current = true
     }
   }, [
@@ -687,45 +598,12 @@ export default function RecordingPage() {
             <p className="mt-1 text-sm font-semibold text-amber-300">Session is paused.</p>
           ) : null}
 
-          {/* Route overlay loader */}
-          {savedRoutes.length > 0 ? (
-            <div className="mt-4 border-t border-slate-700 pt-4">
-              {selectedOverlayRouteId ? (
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-xs text-slate-500">Loaded route</p>
-                    <p className="truncate text-sm font-semibold text-orange-400">
-                      {savedRoutes.find((r) => r.id === selectedOverlayRouteId)?.name}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setRoutePickerOpen(true)}
-                      className="text-xs text-slate-400 hover:text-slate-200"
-                    >
-                      Replace
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleClearOverlayRoute}
-                      className="text-xs text-slate-500 hover:text-red-400"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setRoutePickerOpen(true)}
-                  className="text-sm text-slate-400 hover:text-slate-100"
-                >
-                  + Load route
-                </button>
-              )}
-            </div>
-          ) : null}
+          <RouteOverlayLoader
+            savedRoutes={savedRoutes}
+            selectedOverlayRouteId={selectedOverlayRouteId}
+            onOpenPicker={() => setRoutePickerOpen(true)}
+            onClearOverlayRoute={handleClearOverlayRoute}
+          />
         </div>
       </section>
 
