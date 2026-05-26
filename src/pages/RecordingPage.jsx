@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAutoRecord } from '../hooks/useAutoRecord'
 import { useGeolocation } from '../hooks/useGeolocation'
+import { useScreenWakeLock } from '../hooks/useScreenWakeLock'
 import { useSession } from '../hooks/useSession'
 import { useSettings } from '../hooks/useSettings'
 import {
@@ -43,6 +44,7 @@ export default function RecordingPage() {
   const [routePickerOpen, setRoutePickerOpen] = useState(false)
   const [routeCityComboboxOpen, setRouteCityComboboxOpen] = useState(false)
   const [mobileMapOpen, setMobileMapOpen] = useState(false)
+  const [followCurrentLocation, setFollowCurrentLocation] = useState(false)
   const [isMdUp, setIsMdUp] = useState(() => {
     if (typeof window === 'undefined') {
       return true
@@ -62,6 +64,10 @@ export default function RecordingPage() {
   const session = useSession(activeProviders)
   const sessionActive = Boolean(session.session)
   const sessionPaused = Boolean(session.session?.pausedAt)
+  const wakeLockEnabled = sessionActive && !sessionPaused
+  const activeSessionId = session.session?.id
+  const saveActiveSessionPath = session.saveActiveSessionPath
+  const { wakeLockSupported } = useScreenWakeLock(wakeLockEnabled)
 
   // Load saved routes from DB
   useEffect(() => {
@@ -149,6 +155,17 @@ export default function RecordingPage() {
     }, 5500)
   }, [])
 
+  const handleFollowLost = useCallback(() => {
+    setFollowCurrentLocation(false)
+  }, [])
+
+  const handleRequestFollow = useCallback(() => {
+    if (!sessionActive || sessionPaused) {
+      return
+    }
+    setFollowCurrentLocation(true)
+  }, [sessionActive, sessionPaused])
+
   useEffect(() => {
     return () => {
       if (recordToastTimerRef.current) {
@@ -168,13 +185,23 @@ export default function RecordingPage() {
   })
 
   useEffect(() => {
+    if (!sessionActive) {
+      stopWatching()
+      return undefined
+    }
+
     requestOnce()
-    startWatching()
+      .then(() => {
+        startWatching()
+      })
+      .catch(() => {
+        // Non-blocking geolocation failure.
+      })
 
     return () => {
       stopWatching()
     }
-  }, [requestOnce, startWatching, stopWatching])
+  }, [requestOnce, sessionActive, startWatching, stopWatching])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -253,6 +280,18 @@ export default function RecordingPage() {
   }, [geolocation.location, session.session])
 
   useEffect(() => {
+    if (!activeSessionId) {
+      return undefined
+    }
+
+    const saver = setInterval(() => {
+      saveActiveSessionPath(pathBufferRef.current)
+    }, 10000)
+
+    return () => clearInterval(saver)
+  }, [activeSessionId, saveActiveSessionPath])
+
+  useEffect(() => {
     if (!session.session) {
       const resetTimer = setTimeout(() => {
         setManualSecondsLeft(0)
@@ -298,6 +337,7 @@ export default function RecordingPage() {
         setSessionNameDraft(createdSession.name)
       }
       setMobileMapOpen(true)
+      setFollowCurrentLocation(true)
       pathBufferRef.current = []
 
       if (geolocation.location) {
@@ -314,14 +354,6 @@ export default function RecordingPage() {
 
       setManualSecondsLeft(settings?.sampleIntervalSec || 30)
       manualExpiryBeepedRef.current = false
-
-      requestOnce()
-        .then(() => {
-          startWatching()
-        })
-        .catch(() => {
-          // Non-blocking geolocation failure: session continues without location.
-        })
     } finally {
       setStartingSession(false)
     }
@@ -358,6 +390,7 @@ export default function RecordingPage() {
       manualExpiryBeepedRef.current = false
       pathBufferRef.current = []
       setLivePathPoints([])
+      setFollowCurrentLocation(false)
       setMobileMapOpen(false)
     } finally {
       setStoppingSession(false)
@@ -374,6 +407,7 @@ export default function RecordingPage() {
       if (session.session.pausedAt) {
         await session.resumeActiveSession()
       } else {
+        setFollowCurrentLocation(false)
         await session.pauseActiveSession()
       }
     } finally {
@@ -467,7 +501,10 @@ export default function RecordingPage() {
               points={livePathPoints}
               overlayPoints={overlayPoints}
               currentLocation={geolocation.location}
-              followCurrent={sessionActive && !sessionPaused}
+              followCurrent={followCurrentLocation}
+              isFollowing={followCurrentLocation}
+              onFollowLost={handleFollowLost}
+              onRequestFollow={handleRequestFollow}
               showCurrentMarker
               fitRoute={false}
               fitRouteKey={session.session?.id}
@@ -502,7 +539,10 @@ export default function RecordingPage() {
               points={livePathPoints}
               overlayPoints={overlayPoints}
               currentLocation={geolocation.location}
-              followCurrent={sessionActive && !sessionPaused}
+              followCurrent={followCurrentLocation}
+              isFollowing={followCurrentLocation}
+              onFollowLost={handleFollowLost}
+              onRequestFollow={handleRequestFollow}
               showCurrentMarker
               fitRoute={false}
               fitRouteKey={session.session?.id}
@@ -600,6 +640,11 @@ export default function RecordingPage() {
           <p className="mt-1 text-sm text-slate-400">
             GPS: {geolocation.permissionState} {geolocation.location ? '• fix available' : '• no fix'}
           </p>
+          {wakeLockEnabled && !wakeLockSupported ? (
+            <p className="mt-1 text-xs text-amber-300">
+              Screen wake lock is not supported in this browser. The display may dim during recording.
+            </p>
+          ) : null}
           {sessionPaused ? (
             <p className="mt-1 text-sm font-semibold text-amber-300">Session is paused.</p>
           ) : null}

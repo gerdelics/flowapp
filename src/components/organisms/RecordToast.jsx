@@ -24,7 +24,7 @@ export default function RecordToast({ record, onDismiss }) {
   const channelLabel = record.channel === 'auto' ? 'Automatic reporting' : 'Manual reporting'
 
   return (
-    <div className="pointer-events-none fixed inset-x-3 top-3 z-50 flex justify-center md:inset-x-auto md:right-4 md:justify-end">
+    <div className="pointer-events-none fixed inset-x-3 top-3 z-[1100] flex justify-center md:inset-x-auto md:right-4 md:justify-end">
       <div className="pointer-events-auto w-full max-w-2xl rounded-2xl border border-cyan-500/30 bg-slate-950/95 p-4 shadow-2xl shadow-slate-950/60 backdrop-blur">
         <div className="flex items-start justify-between gap-3">
           <div>

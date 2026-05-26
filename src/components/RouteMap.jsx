@@ -21,6 +21,9 @@ export default function RouteMap({
   overlayPoints,
   currentLocation,
   followCurrent = false,
+  onFollowLost,
+  onRequestFollow,
+  isFollowing = false,
   showCurrentMarker = true,
   showStartEndMarkers = false,
   fitRoute = true,
@@ -37,11 +40,18 @@ export default function RouteMap({
   const startMarkerRef = useRef(null)
   const endMarkerRef = useRef(null)
   const routeFittedRef = useRef(false)
+  const followCurrentRef = useRef(followCurrent)
+  const onFollowLostRef = useRef(onFollowLost)
 
   const latLngPoints = useMemo(() => normalizePoints(points), [points])
   const latLngOverlay = useMemo(() => normalizePoints(overlayPoints), [overlayPoints])
   const hasCurrentLocation =
     typeof currentLocation?.lat === 'number' && typeof currentLocation?.lon === 'number'
+
+  useEffect(() => {
+    followCurrentRef.current = followCurrent
+    onFollowLostRef.current = onFollowLost
+  }, [followCurrent, onFollowLost])
 
   useEffect(() => {
     routeFittedRef.current = false
@@ -67,6 +77,12 @@ export default function RouteMap({
     }).addTo(map)
 
     mapRef.current = map
+
+    map.on('movestart', (event) => {
+      if (event.originalEvent && followCurrentRef.current) {
+        onFollowLostRef.current?.()
+      }
+    })
 
     const invalidate = () => map.invalidateSize({ pan: false })
     const raf = requestAnimationFrame(invalidate)
@@ -256,13 +272,20 @@ export default function RouteMap({
 
       <button
         type="button"
-        onClick={handleGoToCurrentLocation}
+        onClick={() => {
+          onRequestFollow?.()
+          handleGoToCurrentLocation()
+        }}
         disabled={!hasCurrentLocation}
-        className="absolute right-3 top-3 z-[1000] rounded-md border border-slate-700 bg-slate-950/90 px-3 py-2 text-xs font-semibold text-slate-100 shadow-lg backdrop-blur transition hover:border-cyan-500 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
-        title="Go to current location"
+        className={`absolute right-3 top-3 z-[1000] rounded-md border px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur transition disabled:cursor-not-allowed disabled:opacity-50 ${
+          isFollowing
+            ? 'border-cyan-500 bg-cyan-500/10 text-cyan-300'
+            : 'border-slate-700 bg-slate-950/90 text-slate-100 hover:border-cyan-500 hover:text-cyan-300'
+        }`}
+        title={isFollowing ? 'Following GPS – tap to re-centre' : 'Go to current location'}
         aria-label="Go to current location"
       >
-        Current location
+        {isFollowing ? '⊙ Following GPS' : 'Current location'}
       </button>
     </div>
   )
