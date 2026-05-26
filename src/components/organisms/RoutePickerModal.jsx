@@ -92,7 +92,7 @@ export default function RoutePickerModal({
                       onClick={() => setDraftSelectedRouteId(route.id)}
                       className={`w-full rounded-xl border px-4 py-3 text-left transition ${
                         route.id === draftSelectedRouteId
-                          ? 'border-cyan-500/60 bg-cyan-500/10 text-cyan-200'
+                          ? 'border-cyan-500/60 bg-cyan-500/10 text-cyan-900 dark:text-cyan-200'
                           : 'border-slate-700 bg-slate-900 text-slate-200 hover:border-slate-500 hover:bg-slate-800'
                       }`}
                     >

@@ -212,7 +212,7 @@ export default function SessionDetailPage() {
           <button
             type="button"
             onClick={handleExport}
-            className="w-full rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold sm:w-auto"
+            className="w-full rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white sm:w-auto"
           >
             Export CSV
           </button>
@@ -241,7 +241,7 @@ export default function SessionDetailPage() {
             type="button"
             disabled={sessionPath.length === 0 && plannedRoutePoints.length === 0}
             onClick={() => setShowPath((prev) => !prev)}
-            className="w-full rounded-md bg-cyan-600 px-3 py-2 text-sm font-semibold disabled:opacity-50 sm:w-auto"
+            className="w-full rounded-md bg-cyan-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
           >
             {showPath ? 'Hide path' : 'Show path'}
           </button>

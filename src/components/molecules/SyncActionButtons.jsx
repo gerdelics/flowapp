@@ -26,7 +26,7 @@ export default function SyncActionButtons({
         type="button"
         disabled={syncing || !canSync}
         onClick={onRetryAndSync}
-        className={`rounded-md bg-fuchsia-600 px-3 py-2 text-sm font-semibold disabled:opacity-50 ${buttonClassName}`.trim()}
+        className={`rounded-md bg-fuchsia-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50 ${buttonClassName}`.trim()}
       >
         {syncing ? retryAndSyncBusyLabel : canSync ? retryAndSyncLabel : 'Sync unavailable'}
       </button>
@@ -35,7 +35,7 @@ export default function SyncActionButtons({
         type="button"
         disabled={syncing || !canSync}
         onClick={onSync}
-        className={`rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold disabled:opacity-50 ${buttonClassName}`.trim()}
+        className={`rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50 ${buttonClassName}`.trim()}
       >
         {syncing ? syncBusyLabel : canSync ? syncLabel : 'Sync unavailable'}
       </button>

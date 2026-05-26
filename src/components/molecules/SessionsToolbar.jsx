@@ -17,7 +17,7 @@ export default function SessionsToolbar({
           type="button"
           disabled={importingArchive}
           onClick={onImportClick}
-          className="rounded-md bg-cyan-600 px-3 py-2 text-sm font-semibold disabled:opacity-50"
+          className="rounded-md bg-cyan-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
         >
           {importingArchive ? 'Importing…' : 'Import session JSON'}
         </button>

@@ -6,17 +6,144 @@
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
 }
 
+:root,
+.theme-dark {
+  --tm-bg-app: 2 6 23;
+  --tm-bg-surface: 15 23 42;
+  --tm-bg-soft: 30 41 59;
+  --tm-border: 51 65 85;
+  --tm-border-strong: 71 85 105;
+  --tm-text-primary: 241 245 249;
+  --tm-text-secondary: 203 213 225;
+  --tm-text-muted: 148 163 184;
+  --tm-text-subtle: 100 116 139;
+}
+
+.theme-light {
+  --tm-bg-app: 248 250 252;
+  --tm-bg-surface: 255 255 255;
+  --tm-bg-soft: 241 245 249;
+  --tm-border: 203 213 225;
+  --tm-border-strong: 148 163 184;
+  --tm-text-primary: 15 23 42;
+  --tm-text-secondary: 30 41 59;
+  --tm-text-muted: 71 85 105;
+  --tm-text-subtle: 100 116 139;
+}
+
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  background-color: rgb(var(--tm-bg-app));
+  color: rgb(var(--tm-text-primary));
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+.theme-light *,
+.theme-dark * {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 140ms;
+  transition-timing-function: ease;
+}
+
+.theme-light .bg-slate-950,
+.theme-light .bg-slate-900,
+.theme-light .bg-slate-800,
+.theme-light .bg-slate-700 {
+  background-color: rgb(var(--tm-bg-surface)) !important;
+}
+
+.theme-light .bg-slate-950\/95,
+.theme-light .bg-slate-950\/90,
+.theme-light .bg-slate-900\/95,
+.theme-light .bg-slate-900\/90,
+.theme-light .bg-slate-900\/80,
+.theme-light .bg-slate-700\/90 {
+  background-color: rgb(var(--tm-bg-surface) / 0.95) !important;
+}
+
+.theme-light .bg-slate-950\/60 {
+  background-color: rgb(var(--tm-bg-surface) / 0.92) !important;
+}
+
+.theme-light .bg-slate-950\/50 {
+  background-color: rgb(var(--tm-bg-soft) / 0.85) !important;
+}
+
+.theme-light .border-slate-800,
+.theme-light .border-slate-700,
+.theme-light .border-slate-600 {
+  border-color: rgb(var(--tm-border)) !important;
+}
+
+.theme-light .border-slate-500 {
+  border-color: rgb(var(--tm-border-strong)) !important;
+}
+
+.theme-light .text-slate-50,
+.theme-light .text-slate-100 {
+  color: rgb(var(--tm-text-primary)) !important;
+}
+
+.theme-light .text-slate-200,
+.theme-light .text-slate-300 {
+  color: rgb(var(--tm-text-secondary)) !important;
+}
+
+.theme-light .text-slate-400,
+.theme-light .text-slate-500 {
+  color: rgb(var(--tm-text-muted)) !important;
+}
+
+.theme-light .text-cyan-300,
+.theme-light .text-cyan-200 {
+  color: rgb(14 116 144) !important;
+}
+
+.theme-light .bg-cyan-500\/10 {
+  background-color: rgb(6 182 212 / 0.18) !important;
+}
+
+.theme-light .hover\:bg-slate-800:hover,
+.theme-light .hover\:bg-slate-700:hover,
+.theme-light .hover\:bg-slate-600:hover {
+  background-color: rgb(var(--tm-bg-soft)) !important;
+}
+
+.theme-light .hover\:text-slate-200:hover,
+.theme-light .hover\:text-slate-100:hover,
+.theme-light .hover\:text-white:hover {
+  color: rgb(var(--tm-text-primary)) !important;
+}
+
+.theme-light .placeholder\:text-slate-500::placeholder {
+  color: rgb(var(--tm-text-subtle)) !important;
+}
+
+.theme-light .file\:bg-slate-700::file-selector-button {
+  background-color: rgb(var(--tm-bg-soft)) !important;
+}
+
+.theme-light .file\:text-slate-200::file-selector-button {
+  color: rgb(var(--tm-text-secondary)) !important;
+}
+
+.theme-light button:disabled {
+  opacity: 1 !important;
+  background-color: rgb(var(--tm-bg-soft)) !important;
+  color: rgb(var(--tm-text-muted)) !important;
+  border-color: rgb(var(--tm-border)) !important;
 }
 
 /* Leaflet + Tailwind compatibility */
 .leaflet-container {
-  background: #0f172a;
+  background: rgb(var(--tm-bg-app));
 }
 
 .leaflet-container img,

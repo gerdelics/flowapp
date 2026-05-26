@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
+import { useTheme } from '../../hooks/useTheme'
 
 const links = [
   { to: '/', label: 'Recording' },
@@ -33,6 +34,7 @@ function NavItems({ onNavigate, className = 'gap-2 md:flex' }) {
 
 export default function AppLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const { isDark, toggleTheme } = useTheme()
 
   function closeMobileMenu() {
     setMobileMenuOpen(false)
@@ -44,19 +46,33 @@ export default function AppLayout() {
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-4">
           <h1 className="text-lg font-semibold">Traffic Monitor PWA</h1>
 
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen((prev) => !prev)}
-            className="inline-flex items-center justify-center rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 md:hidden"
-            aria-expanded={mobileMenuOpen}
-            aria-label="Toggle navigation menu"
-          >
-            <span className="flex flex-col gap-1">
-              <span className="block h-0.5 w-5 rounded bg-current" />
-              <span className="block h-0.5 w-5 rounded bg-current" />
-              <span className="block h-0.5 w-5 rounded bg-current" />
-            </span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="inline-flex items-center justify-center rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 hover:border-cyan-500"
+              aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+              title={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+            >
+              <span className="text-base leading-none" aria-hidden="true">
+                {isDark ? '☀️' : '🌙'}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className="inline-flex items-center justify-center rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 md:hidden"
+              aria-expanded={mobileMenuOpen}
+              aria-label="Toggle navigation menu"
+            >
+              <span className="flex flex-col gap-1">
+                <span className="block h-0.5 w-5 rounded bg-current" />
+                <span className="block h-0.5 w-5 rounded bg-current" />
+                <span className="block h-0.5 w-5 rounded bg-current" />
+              </span>
+            </button>
+          </div>
 
           <NavItems className="hidden gap-2 md:flex" onNavigate={closeMobileMenu} />
         </div>

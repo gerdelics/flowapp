@@ -523,20 +523,20 @@ export default function SettingsPage() {
 
       <PanelSection
         title="Danger Zone"
-        className="rounded-xl border border-red-700 bg-red-950/40 p-4"
-        titleClassName="text-xl font-semibold text-red-300"
+        className="rounded-xl border border-red-300 bg-red-50 p-4 dark:border-red-700 dark:bg-red-950/40"
+        titleClassName="text-xl font-semibold text-red-700 dark:text-red-300"
       >
         <button
           type="button"
           onClick={handleExportAll}
-          className="mt-3 rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold"
+          className="mt-3 rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white"
         >
           Export all data (CSV)
         </button>
         <button
           type="button"
           onClick={handleClear}
-          className="mt-3 ml-2 rounded-md bg-red-600 px-4 py-2 text-sm font-semibold"
+          className="mt-3 ml-2 rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white"
         >
           Clear all data
         </button>
