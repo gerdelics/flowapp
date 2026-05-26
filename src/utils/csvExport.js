@@ -16,6 +16,46 @@ function quote(value) {
   return `"${String(value).replaceAll('"', '""')}"`
 }
 
+const LEGACY_CSV_HEADERS = [
+  'DeviceName',
+  'UserName',
+  'Device_DateTime_end',
+  'DateTime_UTC_end',
+  'Device_TimeZone',
+  'Color',
+  'AdditionalComments',
+  'Construction',
+  'Accident',
+  'On_HOV_Lane',
+  'TunnelOrRamp',
+  'Device_DateTime_start',
+  'DateTime_UTC_start',
+  'Original_latitude_start',
+  'Original_longitude_start',
+  'Latitude_start',
+  'Longitude_start',
+  'markerUpdateCountStart',
+  'markerUpdateCountEnd',
+  'Original_NMEALocation_end',
+  'NMEALocation_end',
+  'Original_latitude_end',
+  'Original_longitude_end',
+  'Latitude_end',
+  'Longitude_end',
+  'BMW_Green',
+  'BMW_Yellow',
+  'BMW_Orange',
+  'BMW_Red',
+  'ImageName',
+  'VideoName',
+  'ScreenshotName',
+  'isEventDrivenMode',
+  'Lane_Number',
+  'isTrafficLight',
+  'isTrafficViewerDBT',
+  'cyclesCount',
+]
+
 function buildBaseRow({ providerName, observerName, timestamp, timezone, color, location }) {
   const localTs = formatDateTime(timestamp, false)
   const utcTs = formatDateTime(timestamp, true)
@@ -114,7 +154,7 @@ function buildLegacyCsvRows(entries, settings) {
 export function exportLegacyCsv(entries, settings, filename = 'traffic-export.csv') {
   const rows = buildLegacyCsvRows(entries, settings)
 
-  const csvLines = rows.map(rowToLegacyCsvLine)
+  const csvLines = [LEGACY_CSV_HEADERS.map(quote).join(','), ...rows.map(rowToLegacyCsvLine)]
   const csv = csvLines.join('\n')
 
   // Keep PapaParse import in use for future schema/validation compatibility.
