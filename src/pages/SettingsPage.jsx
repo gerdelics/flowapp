@@ -33,35 +33,44 @@ export default function SettingsPage() {
   const geolocation = useGeolocation()
   const { canInstall, isInstalled, triggerInstall, triggerInstallHelp, triggerUninstallHelp } = useInstallPrompt()
 
-  const [nameInput, setNameInput] = useState('')
-  const [csvNameInput, setCsvNameInput] = useState('')
+  const [providerNameInput, setProviderNameInput] = useState('')
+  const [providerCsvNameInput, setProviderCsvNameInput] = useState('')
+  const [providerIconUrlInput, setProviderIconUrlInput] = useState('')
+  const [providerActiveInput, setProviderActiveInput] = useState(true)
+  const [providerModalMode, setProviderModalMode] = useState('add')
+  const [isProviderModalOpen, setIsProviderModalOpen] = useState(false)
+  const [editingProviderId, setEditingProviderId] = useState(null)
   const [draggedProviderId, setDraggedProviderId] = useState(null)
   const [dropTargetProviderId, setDropTargetProviderId] = useState(null)
   const [dropTargetPosition, setDropTargetPosition] = useState('before')
   const [demoLoading, setDemoLoading] = useState(false)
   const [demoMessage, setDemoMessage] = useState('')
-  const [isAddProviderModalOpen, setIsAddProviderModalOpen] = useState(false)
-  const [isEditProviderModalOpen, setIsEditProviderModalOpen] = useState(false)
-  const [editingProviderId, setEditingProviderId] = useState(null)
-  const [editNameInput, setEditNameInput] = useState('')
-  const [editCsvNameInput, setEditCsvNameInput] = useState('')
-  const [editIconUrlInput, setEditIconUrlInput] = useState('')
-  const [editActiveInput, setEditActiveInput] = useState(true)
 
   if (loading || !settings) {
     return <p>Loading settings…</p>
   }
 
-  async function handleAddProvider(event) {
+  async function handleSubmitProvider(event) {
     event.preventDefault()
-    if (!nameInput.trim() || !csvNameInput.trim()) {
+    if (!providerNameInput.trim() || !providerCsvNameInput.trim()) {
       return
     }
 
-    await addProvider(nameInput, csvNameInput)
-    setNameInput('')
-    setCsvNameInput('')
-    setIsAddProviderModalOpen(false)
+    if (providerModalMode === 'edit' && editingProviderId) {
+      await updateProvider(editingProviderId, {
+        name: providerNameInput,
+        csvName: providerCsvNameInput,
+        iconUrl: providerIconUrlInput.trim(),
+        active: providerActiveInput,
+      })
+    } else {
+      await addProvider(providerNameInput, providerCsvNameInput, {
+        iconUrl: providerIconUrlInput.trim(),
+        active: providerActiveInput,
+      })
+    }
+
+    closeProviderModal()
   }
 
   async function handleClear() {
@@ -83,45 +92,34 @@ export default function SettingsPage() {
     await geolocation.requestOnce()
   }
 
+  function resetProviderModalForm() {
+    setEditingProviderId(null)
+    setProviderNameInput('')
+    setProviderCsvNameInput('')
+    setProviderIconUrlInput('')
+    setProviderActiveInput(true)
+  }
+
   function openAddProviderModal() {
-    setNameInput('')
-    setCsvNameInput('')
-    setIsAddProviderModalOpen(true)
+    resetProviderModalForm()
+    setProviderModalMode('add')
+    setIsProviderModalOpen(true)
   }
 
   function openEditProviderModal(provider) {
     setEditingProviderId(provider.id)
-    setEditNameInput(provider.name || '')
-    setEditCsvNameInput(provider.csvName || '')
-    setEditIconUrlInput(provider.iconUrl || '')
-    setEditActiveInput(Boolean(provider.active))
-    setIsEditProviderModalOpen(true)
+    setProviderModalMode('edit')
+    setProviderNameInput(provider.name || '')
+    setProviderCsvNameInput(provider.csvName || '')
+    setProviderIconUrlInput(provider.iconUrl || '')
+    setProviderActiveInput(Boolean(provider.active))
+    setIsProviderModalOpen(true)
   }
 
-  function closeEditProviderModal() {
-    setIsEditProviderModalOpen(false)
-    setEditingProviderId(null)
-    setEditNameInput('')
-    setEditCsvNameInput('')
-    setEditIconUrlInput('')
-    setEditActiveInput(true)
-  }
-
-  async function handleSaveProviderEdits(event) {
-    event.preventDefault()
-
-    if (!editingProviderId || !editNameInput.trim() || !editCsvNameInput.trim()) {
-      return
-    }
-
-    await updateProvider(editingProviderId, {
-      name: editNameInput,
-      csvName: editCsvNameInput,
-      iconUrl: editIconUrlInput.trim(),
-      active: editActiveInput,
-    })
-
-    closeEditProviderModal()
+  function closeProviderModal() {
+    setIsProviderModalOpen(false)
+    resetProviderModalForm()
+    setProviderModalMode('add')
   }
 
   async function handleLoadDemoData() {
@@ -221,38 +219,23 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <OverlayModal
-        open={isAddProviderModalOpen}
-        onClose={() => setIsAddProviderModalOpen(false)}
-        title="Add new provider"
+        open={isProviderModalOpen}
+        onClose={closeProviderModal}
+        title={providerModalMode === 'edit' ? 'Edit provider' : 'Add new provider'}
       >
         <ProviderForm
-          onSubmit={handleAddProvider}
-          submitLabel="Save provider"
-          name={nameInput}
-          onNameChange={setNameInput}
-          csvName={csvNameInput}
-          onCsvNameChange={setCsvNameInput}
-        />
-      </OverlayModal>
-
-      <OverlayModal
-        open={isEditProviderModalOpen}
-        onClose={closeEditProviderModal}
-        title="Edit provider"
-      >
-        <ProviderForm
-          onSubmit={handleSaveProviderEdits}
-          submitLabel="Save changes"
-          name={editNameInput}
-          onNameChange={setEditNameInput}
-          csvName={editCsvNameInput}
-          onCsvNameChange={setEditCsvNameInput}
-          iconUrl={editIconUrlInput}
-          onIconUrlChange={setEditIconUrlInput}
-          onDefaultIcon={() => setEditIconUrlInput(getDefaultProviderIconUrl(editNameInput))}
-          onRemoveIcon={() => setEditIconUrlInput('')}
-          active={editActiveInput}
-          onActiveChange={setEditActiveInput}
+          onSubmit={handleSubmitProvider}
+          submitLabel={providerModalMode === 'edit' ? 'Save changes' : 'Save provider'}
+          name={providerNameInput}
+          onNameChange={setProviderNameInput}
+          csvName={providerCsvNameInput}
+          onCsvNameChange={setProviderCsvNameInput}
+          iconUrl={providerIconUrlInput}
+          onIconUrlChange={setProviderIconUrlInput}
+          onDefaultIcon={() => setProviderIconUrlInput(getDefaultProviderIconUrl(providerNameInput))}
+          onRemoveIcon={() => setProviderIconUrlInput('')}
+          active={providerActiveInput}
+          onActiveChange={setProviderActiveInput}
           showAdvancedFields
         />
       </OverlayModal>

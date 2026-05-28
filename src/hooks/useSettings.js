@@ -59,19 +59,21 @@ export function useSettings() {
     return patchSettings({ providers: nextProviders })
   }
 
-  async function addProvider(name, csvName) {
+  async function addProvider(name, csvName, options = {}) {
     if (!name.trim() || !csvName.trim()) {
       return settings
     }
 
     const trimmedName = name.trim()
+    const trimmedIconUrl = typeof options?.iconUrl === 'string' ? options.iconUrl.trim() : ''
+    const nextActive = typeof options?.active === 'boolean' ? options.active : true
 
     const provider = {
       id: crypto.randomUUID(),
       name: trimmedName,
       csvName: csvName.trim(),
-      active: true,
-      iconUrl: getDefaultProviderIconUrl(trimmedName),
+      active: nextActive,
+      iconUrl: trimmedIconUrl || getDefaultProviderIconUrl(trimmedName),
     }
 
     return patchSettings({ providers: [...settings.providers, provider] })
