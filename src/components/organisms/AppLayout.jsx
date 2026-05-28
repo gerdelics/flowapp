@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useTheme } from '../../hooks/useTheme'
+import RecordingPage from '../../pages/RecordingPage'
 
 const links = [
   { to: '/', label: 'Recording' },
@@ -35,6 +36,8 @@ function NavItems({ onNavigate, className = 'gap-2 md:flex' }) {
 export default function AppLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { isDark, toggleTheme } = useTheme()
+  const location = useLocation()
+  const isRecordingRoute = location.pathname === '/'
 
   function closeMobileMenu() {
     setMobileMenuOpen(false)
@@ -85,7 +88,11 @@ export default function AppLayout() {
       </header>
 
       <main className="mx-auto w-full max-w-6xl px-4 py-6">
-        <Outlet />
+        <div className={isRecordingRoute ? '' : 'hidden'}>
+          <RecordingPage />
+        </div>
+
+        {isRecordingRoute ? null : <Outlet />}
       </main>
     </div>
   )

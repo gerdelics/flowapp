@@ -298,21 +298,30 @@ export default function RecordingPage() {
   }, [activeSessionId, saveActiveSessionPath])
 
   useEffect(() => {
-    if (!session.session) {
+    const intervalSec = settings?.sampleIntervalSec || 30
+
+    if (!activeSessionId) {
       const resetTimer = setTimeout(() => {
         setManualSecondsLeft(0)
       }, 0)
       return () => clearTimeout(resetTimer)
     }
 
-    const intervalSec = settings?.sampleIntervalSec || 30
     const initTimer = setTimeout(() => {
       setManualSecondsLeft(intervalSec)
     }, 0)
 
+    return () => clearTimeout(initTimer)
+  }, [activeSessionId, settings?.sampleIntervalSec])
+
+  useEffect(() => {
+    if (!activeSessionId) {
+      return undefined
+    }
+
     const timer = setInterval(() => {
       setManualSecondsLeft((prev) => {
-        if (session.session?.pausedAt) {
+        if (sessionPaused) {
           return prev
         }
         if (prev <= 1) {
@@ -323,10 +332,9 @@ export default function RecordingPage() {
     }, 1000)
 
     return () => {
-      clearTimeout(initTimer)
       clearInterval(timer)
     }
-  }, [session.session, settings?.sampleIntervalSec])
+  }, [activeSessionId, sessionPaused])
 
   async function handleStartSession() {
     if (startingSession || session.session) {
