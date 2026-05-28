@@ -185,6 +185,12 @@ export default function RecordingPage() {
   })
 
   useEffect(() => {
+    requestOnce().catch(() => {
+      // Non-blocking: location can become available later.
+    })
+  }, [requestOnce])
+
+  useEffect(() => {
     if (!sessionActive) {
       stopWatching()
       return undefined
