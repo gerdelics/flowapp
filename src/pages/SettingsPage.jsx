@@ -276,7 +276,7 @@ export default function SettingsPage() {
 
         <div className="mt-4 rounded-md border border-slate-700 bg-slate-800 p-3">
           <label className="block text-sm text-slate-300">
-            Warning before timer expiry: {settings.recordingWarningLeadSec}s
+            Timer warning: {settings.recordingWarningLeadSec}s
             <input
               type="range"
               min={1}

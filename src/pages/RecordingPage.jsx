@@ -59,6 +59,7 @@ export default function RecordingPage() {
   const warningSoundEnabled = settings?.warningSoundEnabled ?? false
   const warningLeadSec = settings?.recordingWarningLeadSec ?? 5
   const previousCountdownRef = useRef(null)
+  const manualOverdueSecondsRef = useRef(0)
 
   const activeProviders = useMemo(
     () => settings?.providers?.filter((provider) => provider.active) || [],
@@ -443,6 +444,7 @@ export default function RecordingPage() {
     manualExpiryBeepedRef.current = false
     const saved = await session.recordNow(geolocation.location)
     showRecordToast(saved, 'manual')
+    manualOverdueSecondsRef.current = 0
   }
 
   const nextRecordingIn = autoEnabled ? autoRecord.secondsLeft : manualSecondsLeft
@@ -458,7 +460,7 @@ export default function RecordingPage() {
         : `Next Recording in ${nextRecordingIn}s`
 
   useEffect(() => {
-    if (!sessionActive || sessionPaused) {
+    if (!sessionActive || sessionPaused || !autoEnabled) {
       previousCountdownRef.current = null
       return
     }
@@ -487,10 +489,50 @@ export default function RecordingPage() {
     nextRecordingIn,
     sessionActive,
     sessionPaused,
+    autoEnabled,
     settings?.sampleIntervalSec,
     warningLeadSec,
     warningSoundEnabled,
     warningVibrationEnabled,
+  ])
+
+  useEffect(() => {
+    if (!sessionActive || sessionPaused || autoEnabled || manualSecondsLeft > 0) {
+      manualOverdueSecondsRef.current = 0
+      return undefined
+    }
+
+    const reminderIntervalSec = Math.max(1, warningLeadSec)
+
+    const timer = setInterval(() => {
+      manualOverdueSecondsRef.current += 1
+
+      if (manualOverdueSecondsRef.current % reminderIntervalSec !== 0) {
+        return
+      }
+
+      if (
+        warningVibrationEnabled &&
+        typeof navigator !== 'undefined' &&
+        typeof navigator.vibrate === 'function'
+      ) {
+        navigator.vibrate(180)
+      }
+
+      if (warningSoundEnabled) {
+        playNotificationBeep()
+      }
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [
+    sessionActive,
+    sessionPaused,
+    autoEnabled,
+    manualSecondsLeft,
+    warningLeadSec,
+    warningVibrationEnabled,
+    warningSoundEnabled,
   ])
 
   useEffect(() => {
