@@ -1,3 +1,5 @@
+import { Toggle } from '../atoms'
+
 export default function ProviderForm({
   onSubmit,
   submitLabel,
@@ -66,14 +68,13 @@ export default function ProviderForm({
             </button>
           </div>
 
-          <label className="mt-1 flex items-center gap-2 text-sm text-slate-300">
-            <input
-              type="checkbox"
+          <div className="mt-1 flex items-center justify-between gap-3">
+            <span className="text-sm text-slate-300">Provider active</span>
+            <Toggle
               checked={active}
-              onChange={(event) => onActiveChange(event.target.checked)}
+              onChange={onActiveChange}
             />
-            Provider active
-          </label>
+          </div>
         </>
       ) : null}
 

@@ -129,7 +129,7 @@ export default function RouteMap({
     if (latLngPoints.length > 0) {
       if (!pathRef.current) {
         pathRef.current = L.polyline(latLngPoints, {
-          color: '#22d3ee',
+          color: '#22c5c5',
           weight: 5,
           opacity: 0.9,
         }).addTo(map)
@@ -197,7 +197,7 @@ export default function RouteMap({
     if (latLngOverlay.length > 0) {
       if (!overlayPathRef.current) {
         overlayPathRef.current = L.polyline(latLngOverlay, {
-          color: '#f97316',
+          color: '#ebfc01',
           weight: 4,
           opacity: 0.85,
           dashArray: '8 5',
@@ -273,6 +273,11 @@ export default function RouteMap({
       <button
         type="button"
         onClick={() => {
+          if (isFollowing) {
+            onFollowLost?.()
+            return
+          }
+
           onRequestFollow?.()
           handleGoToCurrentLocation()
         }}
@@ -282,8 +287,8 @@ export default function RouteMap({
             ? 'border-cyan-500 bg-cyan-500/10 text-cyan-300'
             : 'border-slate-700 bg-slate-950/90 text-slate-100 hover:border-cyan-500 hover:text-cyan-300'
         }`}
-        title={isFollowing ? 'Following GPS – tap to re-centre' : 'Go to current location'}
-        aria-label="Go to current location"
+        title={isFollowing ? 'Following GPS – tap to stop following' : 'Go to current location'}
+        aria-label={isFollowing ? 'Stop following current location' : 'Go to current location'}
       >
         {isFollowing ? '⊙ Following GPS' : 'Current location'}
       </button>

@@ -55,6 +55,10 @@ export default function RecordingPage() {
   const [recordToast, setRecordToast] = useState(null)
   const recordToastTimerRef = useRef(null)
   const manualBeepEnabled = settings?.manualBeepEnabled ?? true
+  const warningVibrationEnabled = settings?.warningVibrationEnabled ?? true
+  const warningSoundEnabled = settings?.warningSoundEnabled ?? false
+  const warningLeadSec = settings?.recordingWarningLeadSec ?? 5
+  const previousCountdownRef = useRef(null)
 
   const activeProviders = useMemo(
     () => settings?.providers?.filter((provider) => provider.active) || [],
@@ -152,7 +156,7 @@ export default function RecordingPage() {
     recordToastTimerRef.current = window.setTimeout(() => {
       setRecordToast(null)
       recordToastTimerRef.current = null
-    }, 5500)
+    }, 3000)
   }, [])
 
   const handleFollowLost = useCallback(() => {
@@ -452,6 +456,42 @@ export default function RecordingPage() {
       : manualDue
         ? 'RECORD NOW'
         : `Next Recording in ${nextRecordingIn}s`
+
+  useEffect(() => {
+    if (!sessionActive || sessionPaused) {
+      previousCountdownRef.current = null
+      return
+    }
+
+    const effectiveWarningLeadSec = Math.max(
+      1,
+      Math.min(warningLeadSec, (settings?.sampleIntervalSec || 30) - 1),
+    )
+
+    const previous = previousCountdownRef.current
+    const reachedWarning =
+      typeof previous === 'number' && previous > effectiveWarningLeadSec && nextRecordingIn === effectiveWarningLeadSec
+
+    if (reachedWarning) {
+      if (warningVibrationEnabled && typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+        navigator.vibrate(180)
+      }
+
+      if (warningSoundEnabled) {
+        playNotificationBeep()
+      }
+    }
+
+    previousCountdownRef.current = nextRecordingIn
+  }, [
+    nextRecordingIn,
+    sessionActive,
+    sessionPaused,
+    settings?.sampleIntervalSec,
+    warningLeadSec,
+    warningSoundEnabled,
+    warningVibrationEnabled,
+  ])
 
   useEffect(() => {
     if (!sessionActive || sessionPaused || autoEnabled || manualSecondsLeft > 0) {

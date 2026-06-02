@@ -93,6 +93,18 @@ export function useSettings() {
     return patchSettings({ manualBeepEnabled })
   }
 
+  async function setRecordingWarningLeadSec(recordingWarningLeadSec) {
+    return patchSettings({ recordingWarningLeadSec })
+  }
+
+  async function setWarningVibrationEnabled(warningVibrationEnabled) {
+    return patchSettings({ warningVibrationEnabled })
+  }
+
+  async function setWarningSoundEnabled(warningSoundEnabled) {
+    return patchSettings({ warningSoundEnabled })
+  }
+
   async function updateProviderIcon(providerId, iconUrl) {
     const nextProviders = settings.providers.map((provider) =>
       provider.id === providerId
@@ -150,6 +162,9 @@ export function useSettings() {
     deleteProvider,
     setAzureConfig,
     setManualBeepEnabled,
+    setRecordingWarningLeadSec,
+    setWarningVibrationEnabled,
+    setWarningSoundEnabled,
     updateProviderIcon,
     updateProvider,
     reorderProviders,

@@ -50,6 +50,9 @@ const DEFAULT_SETTINGS = {
   azureEndpointUrl: '',
   azureApiKey: '',
   manualBeepEnabled: true,
+  recordingWarningLeadSec: 5,
+  warningVibrationEnabled: true,
+  warningSoundEnabled: false,
 }
 
 function withSettingsDefaults(settings) {
@@ -72,6 +75,18 @@ function withSettingsDefaults(settings) {
       typeof base.manualBeepEnabled === 'boolean'
         ? base.manualBeepEnabled
         : DEFAULT_SETTINGS.manualBeepEnabled,
+    recordingWarningLeadSec:
+      Number.isFinite(base.recordingWarningLeadSec) && base.recordingWarningLeadSec >= 1
+        ? Math.round(base.recordingWarningLeadSec)
+        : DEFAULT_SETTINGS.recordingWarningLeadSec,
+    warningVibrationEnabled:
+      typeof base.warningVibrationEnabled === 'boolean'
+        ? base.warningVibrationEnabled
+        : DEFAULT_SETTINGS.warningVibrationEnabled,
+    warningSoundEnabled:
+      typeof base.warningSoundEnabled === 'boolean'
+        ? base.warningSoundEnabled
+        : DEFAULT_SETTINGS.warningSoundEnabled,
   }
 }
 

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { IconAvatar, PanelSection, ProviderForm } from '../components'
+import { IconAvatar, PanelSection, ProviderForm, Toggle } from '../components'
 import { OverlayModal } from '../components'
 import {
   clearAllData,
@@ -22,6 +22,9 @@ export default function SettingsPage() {
     setObserverName,
     setSampleIntervalSec,
     setManualBeepEnabled,
+    setRecordingWarningLeadSec,
+    setWarningVibrationEnabled,
+    setWarningSoundEnabled,
     toggleProvider,
     addProvider,
     deleteProvider,
@@ -263,14 +266,45 @@ export default function SettingsPage() {
           />
         </label>
 
-        <label className="mt-4 flex items-center gap-3 rounded-md border border-slate-700 bg-slate-800 p-3 text-sm text-slate-300">
-          <input
-            type="checkbox"
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-md border border-slate-700 bg-slate-800 p-3">
+          <span className="text-sm text-slate-300">Manual recording beep enabled</span>
+          <Toggle
             checked={settings.manualBeepEnabled}
-            onChange={(e) => setManualBeepEnabled(e.target.checked)}
+            onChange={setManualBeepEnabled}
           />
-          Manual recording beep enabled
-        </label>
+        </div>
+
+        <div className="mt-4 rounded-md border border-slate-700 bg-slate-800 p-3">
+          <label className="block text-sm text-slate-300">
+            Warning before timer expiry: {settings.recordingWarningLeadSec}s
+            <input
+              type="range"
+              min={1}
+              max={Math.max(1, settings.sampleIntervalSec - 1)}
+              value={Math.min(settings.recordingWarningLeadSec, Math.max(1, settings.sampleIntervalSec - 1))}
+              onChange={(e) => setRecordingWarningLeadSec(Number(e.target.value))}
+              className="mt-2 w-full"
+            />
+          </label>
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <div className="flex items-center justify-between gap-3 rounded-md border border-slate-700 bg-slate-900/40 px-3 py-2">
+              <span className="text-sm text-slate-300">Vibrate on warning</span>
+              <Toggle
+                checked={settings.warningVibrationEnabled}
+                onChange={setWarningVibrationEnabled}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-3 rounded-md border border-slate-700 bg-slate-900/40 px-3 py-2">
+              <span className="text-sm text-slate-300">Play sound on warning</span>
+              <Toggle
+                checked={settings.warningSoundEnabled}
+                onChange={setWarningSoundEnabled}
+              />
+            </div>
+          </div>
+        </div>
 
         <div className="mt-4 rounded-md border border-slate-700 bg-slate-800 p-3">
           <p className="text-sm text-slate-300">
