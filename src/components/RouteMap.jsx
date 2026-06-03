@@ -129,7 +129,7 @@ export default function RouteMap({
     if (latLngPoints.length > 0) {
       if (!pathRef.current) {
         pathRef.current = L.polyline(latLngPoints, {
-          color: '#22c5c5',
+          color: '#e002c3',
           weight: 5,
           opacity: 0.9,
         }).addTo(map)

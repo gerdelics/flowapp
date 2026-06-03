@@ -89,7 +89,7 @@ export default function AppLayout() {
 
       <main className="mx-auto w-full max-w-6xl px-4 py-6">
         <div className={isRecordingRoute ? '' : 'hidden'}>
-          <RecordingPage />
+          <RecordingPage isActive={isRecordingRoute} />
         </div>
 
         {isRecordingRoute ? null : <Outlet />}

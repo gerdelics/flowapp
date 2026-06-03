@@ -108,19 +108,26 @@ export function useSession(activeProviders) {
   )
 
   const assignRouteToActiveSession = useCallback(
-    async (routeId) => {
-      if (!session) {
+    async (routeId, targetSessionId = null) => {
+      const resolvedSessionId = targetSessionId || session?.id
+      if (!resolvedSessionId) {
         return null
       }
 
-      const updated = await setSessionPlannedRoute(session.id, routeId)
+      const updated = await setSessionPlannedRoute(resolvedSessionId, routeId)
       if (updated) {
-        setSession(updated)
+        setSession((current) => {
+          if (!current) {
+            return updated
+          }
+
+          return current.id === updated.id ? updated : current
+        })
         await refreshSessions()
       }
       return updated
     },
-    [refreshSessions, session],
+    [refreshSessions, session?.id],
   )
 
   const pauseActiveSession = useCallback(async () => {

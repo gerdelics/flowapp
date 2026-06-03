@@ -22,8 +22,8 @@ function sanitizePath(path) {
   return path.filter((point) => typeof point?.lat === 'number' && typeof point?.lon === 'number')
 }
 
-export default function RecordingPage() {
-  const { settings, loading } = useSettings()
+export default function RecordingPage({ isActive = true }) {
+  const { settings, loading, reload } = useSettings()
   const [autoEnabled, setAutoEnabled] = useState(false)
   const [manualSecondsLeft, setManualSecondsLeft] = useState(0)
   const [startingSession, setStartingSession] = useState(false)
@@ -72,12 +72,30 @@ export default function RecordingPage() {
   const wakeLockEnabled = sessionActive && !sessionPaused
   const activeSessionId = session.session?.id
   const saveActiveSessionPath = session.saveActiveSessionPath
+  const refreshActiveSession = session.refreshActiveSession
   const { wakeLockSupported } = useScreenWakeLock(wakeLockEnabled)
 
-  // Load saved routes from DB
-  useEffect(() => {
-    db.routes.orderBy('city').toArray().then(setSavedRoutes)
+  const loadSavedRoutes = useCallback(async () => {
+    const routes = await db.routes.orderBy('city').toArray()
+    setSavedRoutes(routes)
   }, [])
+
+  // Keep Recording page state fresh when navigating back to it from other pages.
+  useEffect(() => {
+    if (!isActive) {
+      return undefined
+    }
+
+    const refreshTimer = window.setTimeout(() => {
+      void reload()
+      void loadSavedRoutes()
+      void refreshActiveSession()
+    }, 0)
+
+    return () => {
+      clearTimeout(refreshTimer)
+    }
+  }, [isActive, loadSavedRoutes, refreshActiveSession, reload])
 
   // Unique cities from saved routes
   const routeCities = useMemo(() => {
@@ -350,7 +368,7 @@ export default function RecordingPage() {
     try {
       const createdSession = await session.beginSession(sessionNameDraft)
       if (selectedOverlayRouteId && createdSession?.id) {
-        await session.assignRouteToActiveSession(selectedOverlayRouteId)
+        await session.assignRouteToActiveSession(selectedOverlayRouteId, createdSession.id)
       }
       if (createdSession?.name) {
         setSessionNameDraft(createdSession.name)
