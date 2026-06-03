@@ -19,6 +19,8 @@ export default function RouteMap({
   className,
   points,
   overlayPoints,
+  pathColor = '#e002c3',
+  overlayPathColor = '#ebfc01',
   currentLocation,
   followCurrent = false,
   onFollowLost,
@@ -129,12 +131,13 @@ export default function RouteMap({
     if (latLngPoints.length > 0) {
       if (!pathRef.current) {
         pathRef.current = L.polyline(latLngPoints, {
-          color: '#e002c3',
+          color: pathColor,
           weight: 5,
           opacity: 0.9,
         }).addTo(map)
       } else {
         pathRef.current.setLatLngs(latLngPoints)
+        pathRef.current.setStyle({ color: pathColor })
       }
 
       if (showStartEndMarkers) {
@@ -186,7 +189,7 @@ export default function RouteMap({
       }
       routeFittedRef.current = false
     }
-  }, [fitRoute, followCurrent, latLngPoints, showStartEndMarkers])
+  }, [fitRoute, followCurrent, latLngPoints, pathColor, showStartEndMarkers])
 
   useEffect(() => {
     const map = mapRef.current
@@ -197,13 +200,14 @@ export default function RouteMap({
     if (latLngOverlay.length > 0) {
       if (!overlayPathRef.current) {
         overlayPathRef.current = L.polyline(latLngOverlay, {
-          color: '#ebfc01',
+          color: overlayPathColor,
           weight: 4,
           opacity: 0.85,
           dashArray: '8 5',
         }).addTo(map)
       } else {
         overlayPathRef.current.setLatLngs(latLngOverlay)
+        overlayPathRef.current.setStyle({ color: overlayPathColor })
       }
     } else {
       if (overlayPathRef.current) {
@@ -211,7 +215,7 @@ export default function RouteMap({
         overlayPathRef.current = null
       }
     }
-  }, [latLngOverlay])
+  }, [latLngOverlay, overlayPathColor])
 
   useEffect(() => {
     const map = mapRef.current

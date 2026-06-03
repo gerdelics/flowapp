@@ -53,6 +53,24 @@ const DEFAULT_SETTINGS = {
   recordingWarningLeadSec: 5,
   warningVibrationEnabled: true,
   warningSoundEnabled: false,
+  recordedPathColor: '#e002c3',
+  plannedRoutePathColor: '#ebfc01',
+}
+
+function normalizeHexColor(color, fallback) {
+  if (typeof color !== 'string') {
+    return fallback
+  }
+
+  const value = color.trim()
+  const shortHex = /^#([0-9a-fA-F]{3})$/
+  const fullHex = /^#([0-9a-fA-F]{6})$/
+
+  if (fullHex.test(value) || shortHex.test(value)) {
+    return value
+  }
+
+  return fallback
 }
 
 function withSettingsDefaults(settings) {
@@ -71,6 +89,14 @@ function withSettingsDefaults(settings) {
     ...DEFAULT_SETTINGS,
     ...base,
     providers,
+    recordedPathColor: normalizeHexColor(
+      base.recordedPathColor,
+      DEFAULT_SETTINGS.recordedPathColor,
+    ),
+    plannedRoutePathColor: normalizeHexColor(
+      base.plannedRoutePathColor,
+      DEFAULT_SETTINGS.plannedRoutePathColor,
+    ),
     manualBeepEnabled:
       typeof base.manualBeepEnabled === 'boolean'
         ? base.manualBeepEnabled

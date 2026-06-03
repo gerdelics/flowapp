@@ -105,6 +105,14 @@ export function useSettings() {
     return patchSettings({ warningSoundEnabled })
   }
 
+  async function setRecordedPathColor(recordedPathColor) {
+    return patchSettings({ recordedPathColor })
+  }
+
+  async function setPlannedRoutePathColor(plannedRoutePathColor) {
+    return patchSettings({ plannedRoutePathColor })
+  }
+
   async function updateProviderIcon(providerId, iconUrl) {
     const nextProviders = settings.providers.map((provider) =>
       provider.id === providerId
@@ -165,6 +173,8 @@ export function useSettings() {
     setRecordingWarningLeadSec,
     setWarningVibrationEnabled,
     setWarningSoundEnabled,
+    setRecordedPathColor,
+    setPlannedRoutePathColor,
     updateProviderIcon,
     updateProvider,
     reorderProviders,

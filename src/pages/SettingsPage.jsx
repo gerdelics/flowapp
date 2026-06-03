@@ -25,6 +25,8 @@ export default function SettingsPage() {
     setRecordingWarningLeadSec,
     setWarningVibrationEnabled,
     setWarningSoundEnabled,
+    setRecordedPathColor,
+    setPlannedRoutePathColor,
     toggleProvider,
     addProvider,
     deleteProvider,
@@ -303,6 +305,43 @@ export default function SettingsPage() {
                 onChange={setWarningSoundEnabled}
               />
             </div>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-md border border-slate-700 bg-slate-800 p-3">
+          <p className="text-sm font-semibold text-slate-200">Map path colors</p>
+          <p className="mt-1 text-xs text-slate-400">
+            Applies to both Routes and Recording map views.
+          </p>
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <label className="rounded-md border border-slate-700 bg-slate-900/40 p-3 text-sm text-slate-300">
+              Planned route path color
+              <div className="mt-2 flex items-center gap-3">
+                <input
+                  type="color"
+                  value={settings.plannedRoutePathColor || '#ebfc01'}
+                  onChange={(e) => setPlannedRoutePathColor(e.target.value)}
+                  className="h-10 w-14 cursor-pointer rounded border border-slate-600 bg-slate-800"
+                  aria-label="Planned route path color"
+                />
+                <span className="text-xs text-slate-400">{settings.plannedRoutePathColor || '#ebfc01'}</span>
+              </div>
+            </label>
+
+            <label className="rounded-md border border-slate-700 bg-slate-900/40 p-3 text-sm text-slate-300">
+              Recorded GPS path color
+              <div className="mt-2 flex items-center gap-3">
+                <input
+                  type="color"
+                  value={settings.recordedPathColor || '#e002c3'}
+                  onChange={(e) => setRecordedPathColor(e.target.value)}
+                  className="h-10 w-14 cursor-pointer rounded border border-slate-600 bg-slate-800"
+                  aria-label="Recorded GPS path color"
+                />
+                <span className="text-xs text-slate-400">{settings.recordedPathColor || '#e002c3'}</span>
+              </div>
+            </label>
           </div>
         </div>
 

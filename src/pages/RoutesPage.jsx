@@ -8,10 +8,12 @@ import {
   RouteListCard,
 } from '../components'
 import { db } from '../db'
+import { useSettings } from '../hooks/useSettings'
 import { parseGpx } from '../utils/gpxParser'
 import { getSessionPathDistanceKm } from '../utils/sessionMetrics'
 
 export default function RoutesPage() {
+  const { settings } = useSettings()
   const [routes, setRoutes] = useState([])
   const [selectedRoute, setSelectedRoute] = useState(null)
   const [cityFilter, setCityFilter] = useState('')
@@ -269,6 +271,7 @@ export default function RoutesPage() {
                     onEdit={openEdit}
                     onDelete={handleDelete}
                     lengthKm={routeLengths.get(route.id) || 0}
+                    routePathColor={settings?.plannedRoutePathColor}
                     onClick={() => handleCardClick(route)}
                   />
                 </li>

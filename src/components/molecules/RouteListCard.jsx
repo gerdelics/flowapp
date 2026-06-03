@@ -1,6 +1,14 @@
 import RouteMap from '../RouteMap'
 
-export default function RouteListCard({ route, isSelected, onClick, onEdit, onDelete, lengthKm }) {
+export default function RouteListCard({
+  route,
+  isSelected,
+  onClick,
+  onEdit,
+  onDelete,
+  lengthKm,
+  routePathColor,
+}) {
   return (
     <div
       className={`w-full rounded-xl border p-3 text-left transition ${
@@ -53,6 +61,7 @@ export default function RouteListCard({ route, isSelected, onClick, onEdit, onDe
           <RouteMap
             className="h-56 w-full rounded-lg sm:h-64"
             points={route.points}
+            pathColor={routePathColor}
             fitRoute
             fitRouteKey={route.id}
             showStartEndMarkers

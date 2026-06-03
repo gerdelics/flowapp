@@ -312,6 +312,8 @@ export default function SessionDetailPage() {
                 className="h-72 w-full rounded-md"
                 points={sessionPath}
                 overlayPoints={plannedRoutePoints}
+                pathColor={settings?.recordedPathColor}
+                overlayPathColor={settings?.plannedRoutePathColor}
                 showCurrentMarker={false}
                 showStartEndMarkers
                 fitRoute

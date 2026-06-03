@@ -44,7 +44,7 @@ export default function RecordingPage({ isActive = true }) {
   const [routePickerOpen, setRoutePickerOpen] = useState(false)
   const [routeCityComboboxOpen, setRouteCityComboboxOpen] = useState(false)
   const [mobileMapOpen, setMobileMapOpen] = useState(false)
-  const [followCurrentLocation, setFollowCurrentLocation] = useState(false)
+  const [followCurrentLocation, setFollowCurrentLocation] = useState(true)
   const [isMdUp, setIsMdUp] = useState(() => {
     if (typeof window === 'undefined') {
       return true
@@ -58,6 +58,8 @@ export default function RecordingPage({ isActive = true }) {
   const warningVibrationEnabled = settings?.warningVibrationEnabled ?? true
   const warningSoundEnabled = settings?.warningSoundEnabled ?? false
   const warningLeadSec = settings?.recordingWarningLeadSec ?? 5
+  const recordedPathColor = settings?.recordedPathColor ?? '#e002c3'
+  const plannedRoutePathColor = settings?.plannedRoutePathColor ?? '#ebfc01'
   const previousCountdownRef = useRef(null)
   const manualOverdueSecondsRef = useRef(0)
 
@@ -183,11 +185,8 @@ export default function RecordingPage({ isActive = true }) {
   }, [])
 
   const handleRequestFollow = useCallback(() => {
-    if (!sessionActive || sessionPaused) {
-      return
-    }
     setFollowCurrentLocation(true)
-  }, [sessionActive, sessionPaused])
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -214,7 +213,7 @@ export default function RecordingPage({ isActive = true }) {
   }, [requestOnce])
 
   useEffect(() => {
-    if (!sessionActive) {
+    if (!isActive) {
       stopWatching()
       return undefined
     }
@@ -230,7 +229,7 @@ export default function RecordingPage({ isActive = true }) {
     return () => {
       stopWatching()
     }
-  }, [requestOnce, sessionActive, startWatching, stopWatching])
+  }, [isActive, requestOnce, startWatching, stopWatching])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -427,7 +426,6 @@ export default function RecordingPage({ isActive = true }) {
       manualExpiryBeepedRef.current = false
       pathBufferRef.current = []
       setLivePathPoints([])
-      setFollowCurrentLocation(false)
       setMobileMapOpen(false)
     } finally {
       setStoppingSession(false)
@@ -614,6 +612,8 @@ export default function RecordingPage({ isActive = true }) {
               className="h-[42vh] min-h-[250px] w-full rounded-lg"
               points={livePathPoints}
               overlayPoints={overlayPoints}
+              pathColor={recordedPathColor}
+              overlayPathColor={plannedRoutePathColor}
               currentLocation={geolocation.location}
               followCurrent={followCurrentLocation}
               isFollowing={followCurrentLocation}
@@ -652,6 +652,8 @@ export default function RecordingPage({ isActive = true }) {
               className="h-[40dvh] min-h-[260px] w-full sm:h-[42dvh] md:h-full md:min-h-[320px]"
               points={livePathPoints}
               overlayPoints={overlayPoints}
+              pathColor={recordedPathColor}
+              overlayPathColor={plannedRoutePathColor}
               currentLocation={geolocation.location}
               followCurrent={followCurrentLocation}
               isFollowing={followCurrentLocation}
