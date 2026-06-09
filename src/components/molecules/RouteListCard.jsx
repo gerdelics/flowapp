@@ -62,6 +62,7 @@ export default function RouteListCard({
             className="h-56 w-full rounded-lg sm:h-64"
             points={route.points}
             pathColor={routePathColor}
+            showMapControls={false}
             fitRoute
             fitRouteKey={route.id}
             showStartEndMarkers

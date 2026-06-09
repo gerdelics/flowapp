@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import L from 'leaflet'
 
 const DEFAULT_CENTER = [47.4979, 19.0402]
@@ -30,8 +30,14 @@ export default function RouteMap({
   showStartEndMarkers = false,
   fitRoute = true,
   fitRouteKey,
+  driveModeEnabled,
+  onDriveModeChange,
+  showMapControls = true,
+  showResetControl = true,
+  showDriveModeControl = true,
+  resetZoomLevel = 16,
+  onZoomLevelChange,
   defaultZoom = 14,
-  followZoom = 16,
 }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
@@ -42,8 +48,12 @@ export default function RouteMap({
   const startMarkerRef = useRef(null)
   const endMarkerRef = useRef(null)
   const routeFittedRef = useRef(false)
-  const followCurrentRef = useRef(followCurrent)
-  const onFollowLostRef = useRef(onFollowLost)
+  const driveModeRef = useRef(false)
+  const onZoomLevelChangeRef = useRef(onZoomLevelChange)
+  const initialZoomRef = useRef(defaultZoom)
+
+  const isDriveModeEnabled =
+    typeof driveModeEnabled === 'boolean' ? driveModeEnabled : Boolean(followCurrent || isFollowing)
 
   const latLngPoints = useMemo(() => normalizePoints(points), [points])
   const latLngOverlay = useMemo(() => normalizePoints(overlayPoints), [overlayPoints])
@@ -51,9 +61,12 @@ export default function RouteMap({
     typeof currentLocation?.lat === 'number' && typeof currentLocation?.lon === 'number'
 
   useEffect(() => {
-    followCurrentRef.current = followCurrent
-    onFollowLostRef.current = onFollowLost
-  }, [followCurrent, onFollowLost])
+    driveModeRef.current = isDriveModeEnabled
+  }, [isDriveModeEnabled])
+
+  useEffect(() => {
+    onZoomLevelChangeRef.current = onZoomLevelChange
+  }, [onZoomLevelChange])
 
   useEffect(() => {
     routeFittedRef.current = false
@@ -71,7 +84,7 @@ export default function RouteMap({
 
     const map = L.map(container, {
       zoomControl: true,
-    }).setView(DEFAULT_CENTER, defaultZoom)
+    }).setView(DEFAULT_CENTER, initialZoomRef.current)
 
     L.tileLayer(TILE_URL, {
       maxZoom: 19,
@@ -80,10 +93,8 @@ export default function RouteMap({
 
     mapRef.current = map
 
-    map.on('movestart', (event) => {
-      if (event.originalEvent && followCurrentRef.current) {
-        onFollowLostRef.current?.()
-      }
+    map.on('zoomend', () => {
+      onZoomLevelChangeRef.current?.(Math.round(map.getZoom()))
     })
 
     const invalidate = () => map.invalidateSize({ pan: false })
@@ -120,7 +131,7 @@ export default function RouteMap({
       endMarkerRef.current = null
       routeFittedRef.current = false
     }
-  }, [defaultZoom])
+  }, [])
 
   useEffect(() => {
     const map = mapRef.current
@@ -167,7 +178,7 @@ export default function RouteMap({
         }
       }
 
-      if (fitRoute && !followCurrent && !routeFittedRef.current) {
+      if (fitRoute && !isDriveModeEnabled && !routeFittedRef.current) {
         const bounds = pathRef.current.getBounds()
         if (bounds.isValid()) {
           map.fitBounds(bounds, { padding: [24, 24] })
@@ -189,7 +200,7 @@ export default function RouteMap({
       }
       routeFittedRef.current = false
     }
-  }, [fitRoute, followCurrent, latLngPoints, pathColor, showStartEndMarkers])
+  }, [fitRoute, isDriveModeEnabled, latLngPoints, pathColor, showStartEndMarkers])
 
   useEffect(() => {
     const map = mapRef.current
@@ -252,12 +263,43 @@ export default function RouteMap({
       }
     }
 
-    if (followCurrent) {
-      map.setView(latLng, Math.max(map.getZoom(), followZoom))
+    if (isDriveModeEnabled) {
+      map.setView(latLng, map.getZoom(), { animate: true })
     }
-  }, [currentLocation, followCurrent, followZoom, showCurrentMarker])
+  }, [currentLocation, isDriveModeEnabled, showCurrentMarker])
 
-  function handleGoToCurrentLocation() {
+  useEffect(() => {
+    if (!isDriveModeEnabled) {
+      return
+    }
+
+    const map = mapRef.current
+    const latLng = currentLocationRef.current
+    if (!map || !latLng) {
+      return
+    }
+
+    map.setView(latLng, map.getZoom(), { animate: true })
+  }, [isDriveModeEnabled])
+
+  const notifyDriveModeChange = useCallback(
+    (enabled) => {
+      if (onDriveModeChange) {
+        onDriveModeChange(enabled)
+        return
+      }
+
+      if (enabled) {
+        onRequestFollow?.()
+        return
+      }
+
+      onFollowLost?.()
+    },
+    [onDriveModeChange, onFollowLost, onRequestFollow],
+  )
+
+  function handleResetToCurrentLocation() {
     const map = mapRef.current
     const latLng = currentLocationRef.current
 
@@ -265,37 +307,72 @@ export default function RouteMap({
       return
     }
 
-    map.setView(latLng, Math.max(map.getZoom(), followZoom), {
+    map.setView(latLng, resetZoomLevel, {
       animate: true,
     })
+  }
+
+  function handleToggleDriveMode() {
+    const next = !isDriveModeEnabled
+    notifyDriveModeChange(next)
+
+    if (!next) {
+      return
+    }
+
+    const map = mapRef.current
+    const latLng = currentLocationRef.current
+    if (!map || !latLng) {
+      return
+    }
+
+    map.setView(latLng, map.getZoom(), { animate: true })
   }
 
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className={className || 'h-full w-full rounded-md'} />
 
-      <button
-        type="button"
-        onClick={() => {
-          if (isFollowing) {
-            onFollowLost?.()
-            return
-          }
+      {showMapControls ? (
+        <div className="absolute right-3 top-3 z-[1000] flex flex-row gap-2">
+          {showResetControl ? (
+            <button
+              type="button"
+              onClick={handleResetToCurrentLocation}
+              disabled={!hasCurrentLocation}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-600 bg-slate-950/85 text-slate-300 shadow-lg backdrop-blur transition hover:border-cyan-400 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-40"
+              title="Reset map to current location"
+              aria-label="Reset map to current location"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                <circle cx="12" cy="12" r="3" />
+                <line x1="12" y1="2" x2="12" y2="6" />
+                <line x1="12" y1="18" x2="12" y2="22" />
+                <line x1="2" y1="12" x2="6" y2="12" />
+                <line x1="18" y1="12" x2="22" y2="12" />
+              </svg>
+            </button>
+          ) : null}
 
-          onRequestFollow?.()
-          handleGoToCurrentLocation()
-        }}
-        disabled={!hasCurrentLocation}
-        className={`absolute right-3 top-3 z-[1000] rounded-md border px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur transition disabled:cursor-not-allowed disabled:opacity-50 ${
-          isFollowing
-            ? 'border-cyan-500 bg-cyan-500/10 text-cyan-300'
-            : 'border-slate-700 bg-slate-950/90 text-slate-100 hover:border-cyan-500 hover:text-cyan-300'
-        }`}
-        title={isFollowing ? 'Following GPS – tap to stop following' : 'Go to current location'}
-        aria-label={isFollowing ? 'Stop following current location' : 'Go to current location'}
-      >
-        {isFollowing ? '⊙ Following GPS' : 'Current location'}
-      </button>
+          {showDriveModeControl ? (
+            <button
+              type="button"
+              onClick={handleToggleDriveMode}
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-lg backdrop-blur transition ${
+                isDriveModeEnabled
+                  ? 'border-cyan-400 bg-cyan-500/20 text-cyan-300'
+                  : 'border-slate-600 bg-slate-950/85 text-slate-400 hover:border-slate-400 hover:text-slate-200'
+              }`}
+              title={isDriveModeEnabled ? 'Auto-follow on – tap to disable' : 'Auto-follow off – tap to enable'}
+              aria-label="Toggle drive mode"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                <polyline points="18 15 12 9 6 15" />
+              </svg>
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   )
 }

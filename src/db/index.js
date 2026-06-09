@@ -46,6 +46,7 @@ const DEFAULT_SETTINGS = {
   id: 'singleton',
   observerName: 'Observer',
   sampleIntervalSec: 30,
+  mapZoomLevel: 14,
   providers: DEFAULT_PROVIDERS,
   azureEndpointUrl: '',
   azureApiKey: '',
@@ -113,6 +114,10 @@ function withSettingsDefaults(settings) {
       typeof base.warningSoundEnabled === 'boolean'
         ? base.warningSoundEnabled
         : DEFAULT_SETTINGS.warningSoundEnabled,
+    mapZoomLevel:
+      Number.isFinite(base.mapZoomLevel) && base.mapZoomLevel >= 1 && base.mapZoomLevel <= 19
+        ? Math.round(base.mapZoomLevel)
+        : DEFAULT_SETTINGS.mapZoomLevel,
   }
 }
 

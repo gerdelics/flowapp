@@ -23,7 +23,7 @@ function sanitizePath(path) {
 }
 
 export default function RecordingPage({ isActive = true }) {
-  const { settings, loading, reload } = useSettings()
+  const { settings, loading, reload, setMapZoomLevel } = useSettings()
   const [autoEnabled, setAutoEnabled] = useState(false)
   const [manualSecondsLeft, setManualSecondsLeft] = useState(0)
   const [startingSession, setStartingSession] = useState(false)
@@ -60,6 +60,7 @@ export default function RecordingPage({ isActive = true }) {
   const warningLeadSec = settings?.recordingWarningLeadSec ?? 5
   const recordedPathColor = settings?.recordedPathColor ?? '#e002c3'
   const plannedRoutePathColor = settings?.plannedRoutePathColor ?? '#ebfc01'
+  const mapZoomLevel = settings?.mapZoomLevel ?? 14
   const previousCountdownRef = useRef(null)
   const manualOverdueSecondsRef = useRef(0)
 
@@ -180,13 +181,16 @@ export default function RecordingPage({ isActive = true }) {
     }, 3000)
   }, [])
 
-  const handleFollowLost = useCallback(() => {
-    setFollowCurrentLocation(false)
-  }, [])
+  const handleMapZoomChange = useCallback(
+    (nextZoom) => {
+      if (!Number.isFinite(nextZoom) || Math.round(nextZoom) === Math.round(mapZoomLevel)) {
+        return
+      }
 
-  const handleRequestFollow = useCallback(() => {
-    setFollowCurrentLocation(true)
-  }, [])
+      void setMapZoomLevel(Math.round(nextZoom))
+    },
+    [mapZoomLevel, setMapZoomLevel],
+  )
 
   useEffect(() => {
     return () => {
@@ -615,11 +619,11 @@ export default function RecordingPage({ isActive = true }) {
               pathColor={recordedPathColor}
               overlayPathColor={plannedRoutePathColor}
               currentLocation={geolocation.location}
-              followCurrent={followCurrentLocation}
-              isFollowing={followCurrentLocation}
-              onFollowLost={handleFollowLost}
-              onRequestFollow={handleRequestFollow}
+              driveModeEnabled={followCurrentLocation}
+              onDriveModeChange={setFollowCurrentLocation}
               showCurrentMarker
+              defaultZoom={mapZoomLevel}
+              onZoomLevelChange={handleMapZoomChange}
               fitRoute={false}
               fitRouteKey={session.session?.id}
             />
@@ -655,11 +659,11 @@ export default function RecordingPage({ isActive = true }) {
               pathColor={recordedPathColor}
               overlayPathColor={plannedRoutePathColor}
               currentLocation={geolocation.location}
-              followCurrent={followCurrentLocation}
-              isFollowing={followCurrentLocation}
-              onFollowLost={handleFollowLost}
-              onRequestFollow={handleRequestFollow}
+              driveModeEnabled={followCurrentLocation}
+              onDriveModeChange={setFollowCurrentLocation}
               showCurrentMarker
+              defaultZoom={mapZoomLevel}
+              onZoomLevelChange={handleMapZoomChange}
               fitRoute={false}
               fitRouteKey={session.session?.id}
             />

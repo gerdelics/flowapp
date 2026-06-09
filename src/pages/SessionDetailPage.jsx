@@ -316,6 +316,7 @@ export default function SessionDetailPage() {
                 overlayPathColor={settings?.plannedRoutePathColor}
                 showCurrentMarker={false}
                 showStartEndMarkers
+                showMapControls={false}
                 fitRoute
                 fitRouteKey={session?.id}
               />

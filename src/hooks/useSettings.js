@@ -50,6 +50,10 @@ export function useSettings() {
     return patchSettings({ sampleIntervalSec })
   }
 
+  async function setMapZoomLevel(mapZoomLevel) {
+    return patchSettings({ mapZoomLevel })
+  }
+
   async function toggleProvider(providerId) {
     const nextProviders = settings.providers.map((provider) =>
       provider.id === providerId
@@ -165,6 +169,7 @@ export function useSettings() {
     loading,
     setObserverName,
     setSampleIntervalSec,
+    setMapZoomLevel,
     toggleProvider,
     addProvider,
     deleteProvider,

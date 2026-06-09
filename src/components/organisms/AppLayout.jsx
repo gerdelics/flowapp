@@ -5,6 +5,7 @@ import RecordingPage from '../../pages/RecordingPage'
 
 const links = [
   { to: '/', label: 'Recording' },
+  { to: '/drive-map', label: 'Drive Map' },
   { to: '/sessions', label: 'Sessions' },
   { to: '/routes', label: 'Routes' },
   { to: '/settings', label: 'Settings' },
@@ -44,7 +45,7 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
       <header className="border-b border-slate-800 bg-slate-900/90">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-4">
           <h1 className="text-lg font-semibold">Traffic Monitor PWA</h1>
@@ -87,7 +88,7 @@ export default function AppLayout() {
         ) : null}
       </header>
 
-      <main className="mx-auto w-full max-w-6xl px-4 py-6">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
         <div className={isRecordingRoute ? '' : 'hidden'}>
           <RecordingPage isActive={isRecordingRoute} />
         </div>
