@@ -1,48 +1,41 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useAutoRecord } from '../hooks/useAutoRecord'
 import { useGeolocation } from '../hooks/useGeolocation'
-import { useScreenWakeLock } from '../hooks/useScreenWakeLock'
+import { useRecordingSession } from '../hooks/useRecordingSession'
+import { useSavedRoutes } from '../hooks/useSavedRoutes'
 import { useSession } from '../hooks/useSession'
 import { useSettings } from '../hooks/useSettings'
 import {
+  RecordingMap,
   RecordToast,
-  RouteMap,
-  RouteOverlayLoader,
   RoutePickerModal,
-  TrafficLevelSelector,
+  SessionControls,
+  TrafficLevelPanel,
 } from '../components'
-import { db } from '../db'
-import { playNotificationBeep } from '../utils/audio'
-
-function sanitizePath(path) {
-  if (!Array.isArray(path)) {
-    return []
-  }
-
-  return path.filter((point) => typeof point?.lat === 'number' && typeof point?.lon === 'number')
-}
 
 export default function RecordingPage({ isActive = true }) {
   const { settings, loading, reload, setMapZoomLevel } = useSettings()
+  const geolocation = useGeolocation()
+  const {
+    routes: savedRoutes,
+    cities: routeCities,
+    filterByCity,
+    reload: reloadRoutes,
+  } = useSavedRoutes()
+
   const [autoEnabled, setAutoEnabled] = useState(false)
-  const [manualSecondsLeft, setManualSecondsLeft] = useState(0)
   const [startingSession, setStartingSession] = useState(false)
   const [stoppingSession, setStoppingSession] = useState(false)
+  const [togglingPause, setTogglingPause] = useState(false)
   const [sessionNameDraft, setSessionNameDraft] = useState('')
   const [renamingSession, setRenamingSession] = useState(false)
-  const geolocation = useGeolocation()
-  const { requestOnce, startWatching, stopWatching } = geolocation
-  const manualExpiryBeepedRef = useRef(false)
-  const pathBufferRef = useRef([])
-  const [livePathPoints, setLivePathPoints] = useState([])
 
-  // Route overlay state
-  const [savedRoutes, setSavedRoutes] = useState([])
+  // Route overlay (planned route shown under the recorded path)
   const [routeCityFilter, setRouteCityFilter] = useState('')
   const [selectedOverlayRouteId, setSelectedOverlayRouteId] = useState('')
   const [overlayPoints, setOverlayPoints] = useState([])
   const [routePickerOpen, setRoutePickerOpen] = useState(false)
   const [routeCityComboboxOpen, setRouteCityComboboxOpen] = useState(false)
+
   const [mobileMapOpen, setMobileMapOpen] = useState(false)
   const [followCurrentLocation, setFollowCurrentLocation] = useState(true)
   const [isMdUp, setIsMdUp] = useState(() => {
@@ -51,18 +44,13 @@ export default function RecordingPage({ isActive = true }) {
     }
     return window.matchMedia('(min-width: 640px)').matches
   })
-  const [togglingPause, setTogglingPause] = useState(false)
+
   const [recordToast, setRecordToast] = useState(null)
   const recordToastTimerRef = useRef(null)
-  const manualBeepEnabled = settings?.manualBeepEnabled ?? true
-  const warningVibrationEnabled = settings?.warningVibrationEnabled ?? true
-  const warningSoundEnabled = settings?.warningSoundEnabled ?? false
-  const warningLeadSec = settings?.recordingWarningLeadSec ?? 5
+
   const recordedPathColor = settings?.recordedPathColor ?? '#e002c3'
   const plannedRoutePathColor = settings?.plannedRoutePathColor ?? '#ebfc01'
   const mapZoomLevel = settings?.mapZoomLevel ?? 14
-  const previousCountdownRef = useRef(null)
-  const manualOverdueSecondsRef = useRef(0)
 
   const activeProviders = useMemo(
     () => settings?.providers?.filter((provider) => provider.active) || [],
@@ -72,90 +60,15 @@ export default function RecordingPage({ isActive = true }) {
   const session = useSession(activeProviders)
   const sessionActive = Boolean(session.session)
   const sessionPaused = Boolean(session.session?.pausedAt)
-  const wakeLockEnabled = sessionActive && !sessionPaused
   const activeSessionId = session.session?.id
-  const saveActiveSessionPath = session.saveActiveSessionPath
+  const wakeLockEnabled = sessionActive && !sessionPaused
   const refreshActiveSession = session.refreshActiveSession
-  const { wakeLockSupported } = useScreenWakeLock(wakeLockEnabled)
-
-  const loadSavedRoutes = useCallback(async () => {
-    const routes = await db.routes.orderBy('city').toArray()
-    setSavedRoutes(routes)
-  }, [])
-
-  // Keep Recording page state fresh when navigating back to it from other pages.
-  useEffect(() => {
-    if (!isActive) {
-      return undefined
-    }
-
-    const refreshTimer = window.setTimeout(() => {
-      void reload()
-      void loadSavedRoutes()
-      void refreshActiveSession()
-    }, 0)
-
-    return () => {
-      clearTimeout(refreshTimer)
-    }
-  }, [isActive, loadSavedRoutes, refreshActiveSession, reload])
-
-  // Unique cities from saved routes
-  const routeCities = useMemo(() => {
-    const set = new Set(savedRoutes.map((r) => r.city))
-    return Array.from(set).sort()
-  }, [savedRoutes])
-
-  // Routes filtered by selected city
-  const filteredRoutes = useMemo(() => {
-    if (!routeCityFilter) return savedRoutes
-    return savedRoutes.filter((r) => r.city === routeCityFilter)
-  }, [savedRoutes, routeCityFilter])
-
-  function handleCityFilterChange(city) {
-    setRouteCityFilter(city)
-    setRouteCityComboboxOpen(false)
-  }
-
-  function handleOverlayRouteChange(id) {
-    setSelectedOverlayRouteId(id)
-    if (!id) {
-      setOverlayPoints([])
-      if (session.session) {
-        session.assignRouteToActiveSession(null)
-      }
-      setRouteCityComboboxOpen(false)
-      return
-    }
-    const route = savedRoutes.find((r) => r.id === id)
-    setOverlayPoints(route?.points ?? [])
-    if (session.session) {
-      session.assignRouteToActiveSession(id)
-    }
-    setRouteCityComboboxOpen(false)
-  }
-
-  function handleClearOverlayRoute() {
-    setSelectedOverlayRouteId('')
-    setOverlayPoints([])
-    setRouteCityFilter('')
-    setRouteCityComboboxOpen(false)
-    if (session.session) {
-      session.assignRouteToActiveSession(null)
-    }
-  }
-
-  function closeRoutePicker() {
-    setRoutePickerOpen(false)
-    setRouteCityComboboxOpen(false)
-  }
 
   const dismissRecordToast = useCallback(() => {
     if (recordToastTimerRef.current) {
       clearTimeout(recordToastTimerRef.current)
       recordToastTimerRef.current = null
     }
-
     setRecordToast(null)
   }, [])
 
@@ -181,6 +94,99 @@ export default function RecordingPage({ isActive = true }) {
     }, 3000)
   }, [])
 
+  const recording = useRecordingSession({
+    session,
+    geolocation,
+    settings,
+    isActive,
+    autoEnabled,
+    onRecordSaved: showRecordToast,
+  })
+
+  const {
+    livePathPoints,
+    nextRecordingIn,
+    manualDue,
+    wakeLockSupported,
+    recordNow,
+    startFreshPath,
+    flushPath,
+    clearPath,
+  } = recording
+
+  // Keep the (always-mounted) page fresh when navigating back to it.
+  useEffect(() => {
+    if (!isActive) {
+      return undefined
+    }
+
+    const refreshTimer = window.setTimeout(() => {
+      void reload()
+      void reloadRoutes()
+      void refreshActiveSession()
+    }, 0)
+
+    return () => clearTimeout(refreshTimer)
+  }, [isActive, reload, reloadRoutes, refreshActiveSession])
+
+  // Sync the planned-route overlay when the active session identity changes
+  // (clearing it when no session, adopting the session's route when present —
+  // but never wiping a selection the user made just before starting).
+  const sessionForOverlayRef = useRef(session.session)
+  useEffect(() => {
+    sessionForOverlayRef.current = session.session
+  })
+  useEffect(() => {
+    if (!activeSessionId) {
+      const clear = setTimeout(() => {
+        setSelectedOverlayRouteId('')
+        setOverlayPoints([])
+      }, 0)
+      return () => clearTimeout(clear)
+    }
+
+    const current = sessionForOverlayRef.current
+    const plannedRoutePoints = Array.isArray(current?.plannedRoutePoints)
+      ? current.plannedRoutePoints
+      : []
+
+    if (plannedRoutePoints.length === 0) {
+      return undefined
+    }
+
+    const sync = setTimeout(() => {
+      setSelectedOverlayRouteId(current.plannedRouteId || '')
+      setOverlayPoints(plannedRoutePoints)
+    }, 0)
+    return () => clearTimeout(sync)
+  }, [activeSessionId])
+
+  // Track the responsive breakpoint to avoid mounting two maps at once.
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined
+    }
+
+    const media = window.matchMedia('(min-width: 640px)')
+    const onChange = (event) => setIsMdUp(event.matches)
+    media.addEventListener('change', onChange)
+
+    return () => media.removeEventListener('change', onChange)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (recordToastTimerRef.current) {
+        clearTimeout(recordToastTimerRef.current)
+      }
+    }
+  }, [])
+
+  const filteredRoutes = useMemo(
+    () => filterByCity(routeCityFilter),
+    [filterByCity, routeCityFilter],
+  )
+
   const handleMapZoomChange = useCallback(
     (nextZoom) => {
       if (!Number.isFinite(nextZoom) || Math.round(nextZoom) === Math.round(mapZoomLevel)) {
@@ -192,175 +198,44 @@ export default function RecordingPage({ isActive = true }) {
     [mapZoomLevel, setMapZoomLevel],
   )
 
-  useEffect(() => {
-    return () => {
-      if (recordToastTimerRef.current) {
-        clearTimeout(recordToastTimerRef.current)
+  function handleCityFilterChange(city) {
+    setRouteCityFilter(city)
+    setRouteCityComboboxOpen(false)
+  }
+
+  function handleOverlayRouteChange(id) {
+    setSelectedOverlayRouteId(id)
+    if (!id) {
+      setOverlayPoints([])
+      if (session.session) {
+        session.assignRouteToActiveSession(null)
       }
-    }
-  }, [])
-
-  const autoRecord = useAutoRecord({
-    enabled: autoEnabled && !!session.session && !session.session?.pausedAt,
-    intervalSec: settings?.sampleIntervalSec || 30,
-    onTick: async () => {
-      const saved = await session.recordNow(geolocation.location)
-      showRecordToast(saved, 'auto')
-      setManualSecondsLeft(settings?.sampleIntervalSec || 30)
-    },
-  })
-
-  useEffect(() => {
-    requestOnce().catch(() => {
-      // Non-blocking: location can become available later.
-    })
-  }, [requestOnce])
-
-  useEffect(() => {
-    if (!isActive) {
-      stopWatching()
-      return undefined
+      setRouteCityComboboxOpen(false)
+      return
     }
 
-    requestOnce()
-      .then(() => {
-        startWatching()
-      })
-      .catch(() => {
-        // Non-blocking geolocation failure.
-      })
-
-    return () => {
-      stopWatching()
+    const route = savedRoutes.find((r) => r.id === id)
+    setOverlayPoints(route?.points ?? [])
+    if (session.session) {
+      session.assignRouteToActiveSession(id)
     }
-  }, [isActive, requestOnce, startWatching, stopWatching])
+    setRouteCityComboboxOpen(false)
+  }
 
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return undefined
+  function handleClearOverlayRoute() {
+    setSelectedOverlayRouteId('')
+    setOverlayPoints([])
+    setRouteCityFilter('')
+    setRouteCityComboboxOpen(false)
+    if (session.session) {
+      session.assignRouteToActiveSession(null)
     }
+  }
 
-    const media = window.matchMedia('(min-width: 640px)')
-    const onChange = (event) => {
-      setIsMdUp(event.matches)
-    }
-
-    media.addEventListener('change', onChange)
-
-    return () => {
-      media.removeEventListener('change', onChange)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!session.session) {
-      pathBufferRef.current = []
-      const bump = setTimeout(() => {
-        setLivePathPoints([])
-      }, 0)
-      return () => clearTimeout(bump)
-    }
-
-    pathBufferRef.current = sanitizePath(session.session.path)
-
-    const plannedRoutePoints = Array.isArray(session.session.plannedRoutePoints)
-      ? session.session.plannedRoutePoints
-      : []
-
-    const syncPlannedRouteState = setTimeout(() => {
-      if (plannedRoutePoints.length > 0) {
-        setSelectedOverlayRouteId(session.session.plannedRouteId || '')
-        setOverlayPoints(plannedRoutePoints)
-      } else {
-        setSelectedOverlayRouteId('')
-        setOverlayPoints([])
-      }
-    }, 0)
-
-    const bump = setTimeout(() => {
-      setLivePathPoints([...pathBufferRef.current])
-    }, 0)
-    return () => {
-      clearTimeout(syncPlannedRouteState)
-      clearTimeout(bump)
-    }
-  }, [session.session])
-
-  useEffect(() => {
-    if (!session.session) {
-      return undefined
-    }
-
-    const sampler = setInterval(() => {
-      if (!geolocation.location || session.session?.pausedAt) {
-        return
-      }
-
-      const point = {
-        lat: geolocation.location.lat,
-        lon: geolocation.location.lon,
-        accuracy: geolocation.location.accuracy,
-        timestamp: new Date().toISOString(),
-        fixTimestamp: geolocation.location.timestamp,
-      }
-
-      pathBufferRef.current.push(point)
-      setLivePathPoints((prev) => [...prev, point])
-    }, 1000)
-
-    return () => clearInterval(sampler)
-  }, [geolocation.location, session.session])
-
-  useEffect(() => {
-    if (!activeSessionId) {
-      return undefined
-    }
-
-    const saver = setInterval(() => {
-      saveActiveSessionPath(pathBufferRef.current)
-    }, 10000)
-
-    return () => clearInterval(saver)
-  }, [activeSessionId, saveActiveSessionPath])
-
-  useEffect(() => {
-    const intervalSec = settings?.sampleIntervalSec || 30
-
-    if (!activeSessionId) {
-      const resetTimer = setTimeout(() => {
-        setManualSecondsLeft(0)
-      }, 0)
-      return () => clearTimeout(resetTimer)
-    }
-
-    const initTimer = setTimeout(() => {
-      setManualSecondsLeft(intervalSec)
-    }, 0)
-
-    return () => clearTimeout(initTimer)
-  }, [activeSessionId, settings?.sampleIntervalSec])
-
-  useEffect(() => {
-    if (!activeSessionId) {
-      return undefined
-    }
-
-    const timer = setInterval(() => {
-      setManualSecondsLeft((prev) => {
-        if (sessionPaused) {
-          return prev
-        }
-        if (prev <= 1) {
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-
-    return () => {
-      clearInterval(timer)
-    }
-  }, [activeSessionId, sessionPaused])
+  function closeRoutePicker() {
+    setRoutePickerOpen(false)
+    setRouteCityComboboxOpen(false)
+  }
 
   async function handleStartSession() {
     if (startingSession || session.session) {
@@ -378,22 +253,7 @@ export default function RecordingPage({ isActive = true }) {
       }
       setMobileMapOpen(true)
       setFollowCurrentLocation(true)
-      pathBufferRef.current = []
-
-      if (geolocation.location) {
-        const point = {
-          lat: geolocation.location.lat,
-          lon: geolocation.location.lon,
-          accuracy: geolocation.location.accuracy,
-          timestamp: new Date().toISOString(),
-          fixTimestamp: geolocation.location.timestamp,
-        }
-        pathBufferRef.current.push(point)
-        setLivePathPoints((prev) => [...prev, point])
-      }
-
-      setManualSecondsLeft(settings?.sampleIntervalSec || 30)
-      manualExpiryBeepedRef.current = false
+      startFreshPath()
     } finally {
       setStartingSession(false)
     }
@@ -421,15 +281,11 @@ export default function RecordingPage({ isActive = true }) {
     }
 
     setStoppingSession(true)
-    stopWatching()
     setAutoEnabled(false)
     try {
-      await session.saveActiveSessionPath(pathBufferRef.current)
+      await flushPath()
       await session.endSession()
-      setManualSecondsLeft(0)
-      manualExpiryBeepedRef.current = false
-      pathBufferRef.current = []
-      setLivePathPoints([])
+      clearPath()
       setMobileMapOpen(false)
     } finally {
       setStoppingSession(false)
@@ -447,6 +303,7 @@ export default function RecordingPage({ isActive = true }) {
         await session.resumeActiveSession()
       } else {
         setFollowCurrentLocation(false)
+        await flushPath()
         await session.pauseActiveSession()
       }
     } finally {
@@ -454,124 +311,15 @@ export default function RecordingPage({ isActive = true }) {
     }
   }
 
-  async function handleRecordNow() {
-    if (!sessionActive || autoEnabled || sessionPaused) {
-      return
-    }
-
-    const intervalSec = settings?.sampleIntervalSec || 30
-    setManualSecondsLeft(intervalSec)
-    manualExpiryBeepedRef.current = false
-    const saved = await session.recordNow(geolocation.location)
-    showRecordToast(saved, 'manual')
-    manualOverdueSecondsRef.current = 0
-  }
-
-  const nextRecordingIn = autoEnabled ? autoRecord.secondsLeft : manualSecondsLeft
-  const manualDue = sessionActive && !sessionPaused && !autoEnabled && manualSecondsLeft <= 0
   const recordButtonLabel = !sessionActive
     ? 'RECORD NOW'
     : sessionPaused
       ? 'PAUSED'
-    : autoEnabled
-      ? `Next Recording in ${nextRecordingIn}s`
-      : manualDue
-        ? 'RECORD NOW'
-        : `Next Recording in ${nextRecordingIn}s`
-
-  useEffect(() => {
-    if (!sessionActive || sessionPaused || !autoEnabled) {
-      previousCountdownRef.current = null
-      return
-    }
-
-    const effectiveWarningLeadSec = Math.max(
-      1,
-      Math.min(warningLeadSec, (settings?.sampleIntervalSec || 30) - 1),
-    )
-
-    const previous = previousCountdownRef.current
-    const reachedWarning =
-      typeof previous === 'number' && previous > effectiveWarningLeadSec && nextRecordingIn === effectiveWarningLeadSec
-
-    if (reachedWarning) {
-      if (warningVibrationEnabled && typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-        navigator.vibrate(180)
-      }
-
-      if (warningSoundEnabled) {
-        playNotificationBeep()
-      }
-    }
-
-    previousCountdownRef.current = nextRecordingIn
-  }, [
-    nextRecordingIn,
-    sessionActive,
-    sessionPaused,
-    autoEnabled,
-    settings?.sampleIntervalSec,
-    warningLeadSec,
-    warningSoundEnabled,
-    warningVibrationEnabled,
-  ])
-
-  useEffect(() => {
-    if (!sessionActive || sessionPaused || autoEnabled || manualSecondsLeft > 0) {
-      manualOverdueSecondsRef.current = 0
-      return undefined
-    }
-
-    const reminderIntervalSec = Math.max(1, warningLeadSec)
-
-    const timer = setInterval(() => {
-      manualOverdueSecondsRef.current += 1
-
-      if (manualOverdueSecondsRef.current % reminderIntervalSec !== 0) {
-        return
-      }
-
-      if (
-        warningVibrationEnabled &&
-        typeof navigator !== 'undefined' &&
-        typeof navigator.vibrate === 'function'
-      ) {
-        navigator.vibrate(180)
-      }
-
-      if (warningSoundEnabled) {
-        playNotificationBeep()
-      }
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [
-    sessionActive,
-    sessionPaused,
-    autoEnabled,
-    manualSecondsLeft,
-    warningLeadSec,
-    warningVibrationEnabled,
-    warningSoundEnabled,
-  ])
-
-  useEffect(() => {
-    if (!sessionActive || sessionPaused || autoEnabled || manualSecondsLeft > 0) {
-      manualExpiryBeepedRef.current = false
-      return
-    }
-
-    if (manualBeepEnabled && !manualExpiryBeepedRef.current) {
-      playNotificationBeep()
-      manualExpiryBeepedRef.current = true
-    }
-  }, [
-    sessionActive,
-    sessionPaused,
-    autoEnabled,
-    manualSecondsLeft,
-    manualBeepEnabled,
-  ])
+      : autoEnabled
+        ? `Next Recording in ${nextRecordingIn}s`
+        : manualDue
+          ? 'RECORD NOW'
+          : `Next Recording in ${nextRecordingIn}s`
 
   const gridColumns = useMemo(() => {
     if (!activeProviders.length) {
@@ -582,6 +330,19 @@ export default function RecordingPage({ isActive = true }) {
 
   if (loading || !settings) {
     return <p>Loading settings…</p>
+  }
+
+  const mapProps = {
+    points: livePathPoints,
+    overlayPoints,
+    recordedPathColor,
+    plannedRoutePathColor,
+    currentLocation: geolocation.location,
+    followCurrentLocation,
+    onFollowChange: setFollowCurrentLocation,
+    defaultZoom: mapZoomLevel,
+    onZoomLevelChange: handleMapZoomChange,
+    fitRouteKey: activeSessionId,
   }
 
   return (
@@ -612,21 +373,7 @@ export default function RecordingPage({ isActive = true }) {
           </summary>
 
           <div className="border-t border-slate-700 p-3">
-            <RouteMap
-              className="h-[42vh] min-h-[250px] w-full rounded-lg"
-              points={livePathPoints}
-              overlayPoints={overlayPoints}
-              pathColor={recordedPathColor}
-              overlayPathColor={plannedRoutePathColor}
-              currentLocation={geolocation.location}
-              driveModeEnabled={followCurrentLocation}
-              onDriveModeChange={setFollowCurrentLocation}
-              showCurrentMarker
-              defaultZoom={mapZoomLevel}
-              onZoomLevelChange={handleMapZoomChange}
-              fitRoute={false}
-              fitRouteKey={session.session?.id}
-            />
+            <RecordingMap className="h-[42vh] min-h-[250px] w-full rounded-lg" {...mapProps} />
           </div>
         </details>
       </section>
@@ -649,174 +396,55 @@ export default function RecordingPage({ isActive = true }) {
       ) : null}
 
       <div className="grid min-h-[calc(100dvh-9.5rem)] gap-3 md:h-[calc(100dvh-9.5rem)] md:min-h-[620px] md:grid-rows-[2fr_1fr]">
-      <section className="grid min-h-0 gap-3 md:grid-cols-[2fr_1fr]">
-        {isMdUp ? (
-          <div className="min-h-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
-            <RouteMap
-              className="h-[40dvh] min-h-[260px] w-full sm:h-[42dvh] md:h-full md:min-h-[320px]"
-              points={livePathPoints}
-              overlayPoints={overlayPoints}
-              pathColor={recordedPathColor}
-              overlayPathColor={plannedRoutePathColor}
-              currentLocation={geolocation.location}
-              driveModeEnabled={followCurrentLocation}
-              onDriveModeChange={setFollowCurrentLocation}
-              showCurrentMarker
-              defaultZoom={mapZoomLevel}
-              onZoomLevelChange={handleMapZoomChange}
-              fitRoute={false}
-              fitRouteKey={session.session?.id}
-            />
-          </div>
-        ) : null}
-
-        <div className="rounded-xl border border-slate-700 bg-slate-900 p-4">
-          <p className="text-sm text-slate-400">Active session</p>
-          <p className="mt-1 text-xl font-bold">
-            {session.session ? session.session.name : 'No running session'}
-          </p>
-
-          <div className="mt-3 flex gap-2">
-            <input
-              type="text"
-              value={sessionNameDraft}
-              onChange={(e) => setSessionNameDraft(e.target.value)}
-              placeholder="Session name (before start or during recording)"
-              className="min-h-11 flex-1 rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm"
-            />
-            {session.session ? (
-              <button
-                type="button"
-                onClick={handleRenameSession}
-                disabled={renamingSession || !sessionNameDraft.trim()}
-                className="rounded-lg bg-slate-700 px-3 py-2 text-sm font-semibold disabled:opacity-50"
-              >
-                {renamingSession ? 'Saving…' : 'Rename'}
-              </button>
-            ) : null}
-          </div>
-
-          <div className="mt-3 grid gap-2">
-            {!session.session ? (
-              <button
-                type="button"
-                disabled={startingSession}
-                onClick={handleStartSession}
-                className="min-h-12 rounded-lg bg-emerald-600 px-4 py-2 text-base font-bold disabled:opacity-50"
-              >
-                {startingSession ? 'STARTING…' : 'START SESSION'}
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={stoppingSession}
-                onClick={handleStopSession}
-                className="min-h-12 rounded-lg bg-red-600 px-4 py-2 text-base font-bold disabled:opacity-50"
-              >
-                {stoppingSession ? 'STOPPING…' : 'STOP SESSION'}
-              </button>
-            )}
-
-            {session.session ? (
-              <button
-                type="button"
-                disabled={togglingPause}
-                onClick={handleTogglePause}
-                className="min-h-12 rounded-lg bg-amber-500 px-4 py-2 text-base font-bold text-slate-950 disabled:opacity-50"
-              >
-                {togglingPause
-                  ? sessionPaused
-                    ? 'RESUMING…'
-                    : 'PAUSING…'
-                  : sessionPaused
-                    ? 'RESUME SESSION'
-                    : 'PAUSE SESSION'}
-              </button>
-            ) : null}
-
-            <button
-              type="button"
-              disabled={!session.session}
-              onClick={() => setAutoEnabled((prev) => !prev)}
-              className="min-h-12 rounded-lg bg-slate-700 px-4 py-2 text-base font-bold disabled:opacity-50"
-            >
-              Auto-record: {autoEnabled ? 'ON' : 'OFF'}
-            </button>
-
-            <button
-              type="button"
-              disabled={!sessionActive || autoEnabled || sessionPaused}
-              onClick={handleRecordNow}
-              className="min-h-12 rounded-lg bg-cyan-500 px-4 py-2 text-base font-bold text-slate-950 disabled:opacity-50"
-            >
-              {recordButtonLabel}
-            </button>
-          </div>
-
-          <p className="mt-3 text-sm text-slate-400">
-            Last recorded:{' '}
-            {session.lastRecordedAt ? new Date(session.lastRecordedAt).toLocaleString() : '—'}
-          </p>
-          <p className="mt-1 text-sm text-slate-400">
-            GPS: {geolocation.permissionState} {geolocation.location ? '• fix available' : '• no fix'}
-          </p>
-          {wakeLockEnabled && !wakeLockSupported ? (
-            <p className="mt-1 text-xs text-amber-300">
-              Screen wake lock is not supported in this browser. The display may dim during recording.
-            </p>
-          ) : null}
-          {sessionPaused ? (
-            <p className="mt-1 text-sm font-semibold text-amber-300">Session is paused.</p>
+        <section className="grid min-h-0 gap-3 md:grid-cols-[2fr_1fr]">
+          {isMdUp ? (
+            <div className="min-h-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
+              <RecordingMap
+                className="h-[40dvh] min-h-[260px] w-full sm:h-[42dvh] md:h-full md:min-h-[320px]"
+                {...mapProps}
+              />
+            </div>
           ) : null}
 
-          <RouteOverlayLoader
+          <SessionControls
+            sessionName={session.session ? session.session.name : 'No running session'}
+            sessionActive={sessionActive}
+            sessionPaused={sessionPaused}
+            sessionNameDraft={sessionNameDraft}
+            onNameDraftChange={setSessionNameDraft}
+            onRename={handleRenameSession}
+            renamingSession={renamingSession}
+            startingSession={startingSession}
+            onStart={handleStartSession}
+            stoppingSession={stoppingSession}
+            onStop={handleStopSession}
+            togglingPause={togglingPause}
+            onTogglePause={handleTogglePause}
+            autoEnabled={autoEnabled}
+            onToggleAuto={() => setAutoEnabled((prev) => !prev)}
+            recordButtonLabel={recordButtonLabel}
+            onRecordNow={recordNow}
+            recordDisabled={!sessionActive || autoEnabled || sessionPaused}
+            lastRecordedAt={session.lastRecordedAt}
+            permissionState={geolocation.permissionState}
+            hasFix={Boolean(geolocation.location)}
+            wakeLockEnabled={wakeLockEnabled}
+            wakeLockSupported={wakeLockSupported}
             savedRoutes={savedRoutes}
             selectedOverlayRouteId={selectedOverlayRouteId}
             onOpenPicker={() => setRoutePickerOpen(true)}
             onClearOverlayRoute={handleClearOverlayRoute}
           />
-        </div>
-      </section>
+        </section>
 
-      <section className="min-h-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-950/50 p-2">
-        <div className="grid grid-cols-1 gap-2 md:hidden sm:grid-cols-2">
-          <TrafficLevelSelector
-            title="User Perception"
-            value={session.observerAssessment}
-            onSelect={session.setObserverAssessment}
-            compact
-          />
-
-          {activeProviders.map((provider) => (
-            <TrafficLevelSelector
-              key={provider.id}
-              title={provider.name}
-              iconUrl={provider.iconUrl}
-              value={session.providerLevels[provider.name] || 'medium'}
-              onSelect={(level) => session.updateProviderLevel(provider.name, level)}
-              compact
-            />
-          ))}
-        </div>
-
-        <div className="hidden h-full gap-2 md:grid" style={{ gridTemplateColumns: gridColumns }}>
-          <TrafficLevelSelector
-            title="User Perception"
-            value={session.observerAssessment}
-            onSelect={session.setObserverAssessment}
-          />
-
-          {activeProviders.map((provider) => (
-            <TrafficLevelSelector
-              key={provider.id}
-              title={provider.name}
-              iconUrl={provider.iconUrl}
-              value={session.providerLevels[provider.name] || 'medium'}
-              onSelect={(level) => session.updateProviderLevel(provider.name, level)}
-            />
-          ))}
-        </div>
-      </section>
+        <TrafficLevelPanel
+          observerAssessment={session.observerAssessment}
+          onObserverSelect={session.setObserverAssessment}
+          providers={activeProviders}
+          providerLevels={session.providerLevels}
+          onProviderSelect={session.updateProviderLevel}
+          gridColumns={gridColumns}
+        />
       </div>
     </>
   )

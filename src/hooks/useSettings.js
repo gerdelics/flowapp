@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ensureSettings, updateSettings } from '../db'
 import { getDefaultProviderIconUrl } from '../utils/providerIconDefaults'
+
+const DEBOUNCE_MS = 400
 
 function moveItem(items, fromIndex, toIndex) {
   if (fromIndex === toIndex) {
@@ -16,6 +18,7 @@ function moveItem(items, fromIndex, toIndex) {
 export function useSettings() {
   const [settings, setSettings] = useState(null)
   const [loading, setLoading] = useState(true)
+  const pendingWritesRef = useRef(new Map())
 
   useEffect(() => {
     let mounted = true
@@ -36,23 +39,106 @@ export function useSettings() {
     }
   }, [])
 
-  async function patchSettings(patch) {
+  const reload = useCallback(async () => {
+    const data = await ensureSettings()
+    setSettings(data)
+    return data
+  }, [])
+
+  const patchSettings = useCallback(async (patch) => {
     const next = await updateSettings(patch)
     setSettings(next)
     return next
-  }
+  }, [])
 
-  async function setObserverName(observerName) {
-    return patchSettings({ observerName })
-  }
+  // Debounced writer for rapidly-changing inputs (text fields, color pickers,
+  // range sliders). Local settings state updates immediately for a responsive
+  // UI; the IndexedDB write is coalesced so we don't persist on every keystroke
+  // or slider step.
+  const patchSettingsDebounced = useCallback((key, patch) => {
+    setSettings((prev) => (prev ? { ...prev, ...patch } : prev))
 
-  async function setSampleIntervalSec(sampleIntervalSec) {
-    return patchSettings({ sampleIntervalSec })
-  }
+    const pending = pendingWritesRef.current
+    const existing = pending.get(key)
+    if (existing) {
+      clearTimeout(existing.timer)
+    }
 
-  async function setMapZoomLevel(mapZoomLevel) {
-    return patchSettings({ mapZoomLevel })
-  }
+    const timer = setTimeout(async () => {
+      pending.delete(key)
+      const next = await updateSettings(patch)
+      setSettings(next)
+    }, DEBOUNCE_MS)
+
+    pending.set(key, { timer, patch })
+  }, [])
+
+  // Flush any pending debounced writes when the hook unmounts so edits aren't
+  // lost if the user navigates away mid-debounce.
+  useEffect(() => {
+    const pending = pendingWritesRef.current
+    return () => {
+      pending.forEach((entry) => {
+        clearTimeout(entry.timer)
+        void updateSettings(entry.patch)
+      })
+      pending.clear()
+    }
+  }, [])
+
+  const setObserverName = useCallback(
+    (observerName) => patchSettingsDebounced('observerName', { observerName }),
+    [patchSettingsDebounced],
+  )
+
+  const setSampleIntervalSec = useCallback(
+    (sampleIntervalSec) => patchSettingsDebounced('sampleIntervalSec', { sampleIntervalSec }),
+    [patchSettingsDebounced],
+  )
+
+  const setRecordingWarningLeadSec = useCallback(
+    (recordingWarningLeadSec) =>
+      patchSettingsDebounced('recordingWarningLeadSec', { recordingWarningLeadSec }),
+    [patchSettingsDebounced],
+  )
+
+  const setRecordedPathColor = useCallback(
+    (recordedPathColor) => patchSettingsDebounced('recordedPathColor', { recordedPathColor }),
+    [patchSettingsDebounced],
+  )
+
+  const setPlannedRoutePathColor = useCallback(
+    (plannedRoutePathColor) =>
+      patchSettingsDebounced('plannedRoutePathColor', { plannedRoutePathColor }),
+    [patchSettingsDebounced],
+  )
+
+  const setAzureConfig = useCallback(
+    (azureEndpointUrl, azureApiKey) =>
+      patchSettingsDebounced('azureConfig', { azureEndpointUrl, azureApiKey }),
+    [patchSettingsDebounced],
+  )
+
+  // Toggles and the map zoom write immediately (single, deliberate actions).
+  const setMapZoomLevel = useCallback(
+    (mapZoomLevel) => patchSettings({ mapZoomLevel }),
+    [patchSettings],
+  )
+
+  const setManualBeepEnabled = useCallback(
+    (manualBeepEnabled) => patchSettings({ manualBeepEnabled }),
+    [patchSettings],
+  )
+
+  const setWarningVibrationEnabled = useCallback(
+    (warningVibrationEnabled) => patchSettings({ warningVibrationEnabled }),
+    [patchSettings],
+  )
+
+  const setWarningSoundEnabled = useCallback(
+    (warningSoundEnabled) => patchSettings({ warningSoundEnabled }),
+    [patchSettings],
+  )
 
   async function toggleProvider(providerId) {
     const nextProviders = settings.providers.map((provider) =>
@@ -87,34 +173,6 @@ export function useSettings() {
     return patchSettings({
       providers: settings.providers.filter((provider) => provider.id !== providerId),
     })
-  }
-
-  async function setAzureConfig(azureEndpointUrl, azureApiKey) {
-    return patchSettings({ azureEndpointUrl, azureApiKey })
-  }
-
-  async function setManualBeepEnabled(manualBeepEnabled) {
-    return patchSettings({ manualBeepEnabled })
-  }
-
-  async function setRecordingWarningLeadSec(recordingWarningLeadSec) {
-    return patchSettings({ recordingWarningLeadSec })
-  }
-
-  async function setWarningVibrationEnabled(warningVibrationEnabled) {
-    return patchSettings({ warningVibrationEnabled })
-  }
-
-  async function setWarningSoundEnabled(warningSoundEnabled) {
-    return patchSettings({ warningSoundEnabled })
-  }
-
-  async function setRecordedPathColor(recordedPathColor) {
-    return patchSettings({ recordedPathColor })
-  }
-
-  async function setPlannedRoutePathColor(plannedRoutePathColor) {
-    return patchSettings({ plannedRoutePathColor })
   }
 
   async function updateProviderIcon(providerId, iconUrl) {
@@ -183,6 +241,6 @@ export function useSettings() {
     updateProviderIcon,
     updateProvider,
     reorderProviders,
-    reload: async () => setSettings(await ensureSettings()),
+    reload,
   }
 }

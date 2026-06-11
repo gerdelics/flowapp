@@ -1,6 +1,7 @@
+import { memo } from 'react'
 import RouteMap from '../RouteMap'
 
-export default function RouteListCard({
+function RouteListCard({
   route,
   isSelected,
   onClick,
@@ -72,3 +73,5 @@ export default function RouteListCard({
     </div>
   )
 }
+
+export default memo(RouteListCard)

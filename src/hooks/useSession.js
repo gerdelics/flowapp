@@ -81,14 +81,15 @@ export function useSession(activeProviders) {
         return null
       }
 
-      const updated = await setSessionPath(session.id, path)
-      if (updated) {
-        setSession(updated)
-        await refreshSessions()
-      }
-      return updated
+      // Persist only. This runs on a 10s autosave loop while recording;
+      // calling setSession (re-triggering downstream effects) and
+      // refreshSessions (a full sessions+entries read) every 10s was a steady
+      // battery drain. The sessions list is refreshed on session end and on
+      // navigation instead, and the live map is driven by the in-memory path
+      // buffer rather than session.path.
+      return setSessionPath(session.id, path)
     },
-    [refreshSessions, session],
+    [session],
   )
 
   const renameActiveSession = useCallback(

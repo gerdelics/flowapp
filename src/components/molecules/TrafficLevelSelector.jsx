@@ -1,7 +1,8 @@
+import { memo } from 'react'
 import { TRAFFIC_LEVELS } from '../../utils/trafficLevels'
 import { IconAvatar, TrafficLevelButton } from '../atoms'
 
-export default function TrafficLevelSelector({
+function TrafficLevelSelector({
   title,
   iconUrl,
   value,
@@ -31,3 +32,5 @@ export default function TrafficLevelSelector({
     </div>
   )
 }
+
+export default memo(TrafficLevelSelector)

@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en" class="theme-dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Traffic Monitor — Design System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Semantic color tokens ───────────────────────────────────────────── */
+    :root, .theme-dark {
+      --tm-bg-app:      2   6  23;
+      --tm-bg-surface: 15  23  42;
+      --tm-bg-soft:    30  41  59;
+      --tm-border:     51  65  85;
+      --tm-border-strong: 71 85 105;
+      --tm-text-primary:  241 245 249;
+      --tm-text-secondary: 203 213 225;
+      --tm-text-muted:    148 163 184;
+      --tm-text-subtle:   100 116 139;
+    }
+    .theme-light {
+      --tm-bg-app:      248 250 252;
+      --tm-bg-surface:  255 255 255;
+      --tm-bg-soft:     241 245 249;
+      --tm-border:      203 213 225;
+      --tm-border-strong: 148 163 184;
+      --tm-text-primary:  15  23  42;
+      --tm-text-secondary: 30  41  59;
+      --tm-text-muted:     71  85 105;
+      --tm-text-subtle:   100 116 139;
+    }
+
+    /* ── Base ────────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      background-color: rgb(var(--tm-bg-app));
+      color: rgb(var(--tm-text-primary));
+      transition: background-color 140ms ease, color 140ms ease;
+      padding-bottom: 80px;
+    }
+
+    * { transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease; }
+
+    /* ── Layout helpers ──────────────────────────────────────────────────── */
+    .ds-page       { max-width: 900px; margin: 0 auto; padding: 0 20px; }
+    .ds-section    { margin-top: 48px; }
+    .ds-grid       { display: grid; gap: 12px; }
+    .ds-grid-2     { grid-template-columns: repeat(2, 1fr); }
+    .ds-grid-3     { grid-template-columns: repeat(3, 1fr); }
+    .ds-grid-4     { grid-template-columns: repeat(4, 1fr); }
+    .ds-flex       { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .ds-flex-col   { display: flex; flex-direction: column; gap: 8px; }
+
+    @media (max-width: 600px) {
+      .ds-grid-3, .ds-grid-4 { grid-template-columns: repeat(2, 1fr); }
+      .ds-grid-2 { grid-template-columns: 1fr; }
+    }
+
+    /* ── Typography helpers ──────────────────────────────────────────────── */
+    .ds-page-title   { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; color: rgb(var(--tm-text-primary)); }
+    .ds-section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgb(var(--tm-text-subtle)); margin-bottom: 16px; }
+    .ds-label        { font-size: 11px; font-weight: 600; color: rgb(var(--tm-text-muted)); }
+
+    /* ── Surface / card helpers ──────────────────────────────────────────── */
+    .ds-card {
+      border-radius: 12px;
+      border: 1px solid rgb(var(--tm-border));
+      background-color: rgb(var(--tm-bg-surface));
+      padding: 16px;
+    }
+    .ds-surface-soft {
+      border-radius: 8px;
+      background-color: rgb(var(--tm-bg-soft));
+      padding: 12px 14px;
+    }
+    .ds-divider {
+      border: none;
+      border-top: 1px solid rgb(var(--tm-border));
+      margin: 32px 0;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────────── */
+    .ds-header {
+      position: sticky; top: 0; z-index: 100;
+      border-bottom: 1px solid rgb(var(--tm-border));
+      background-color: rgb(var(--tm-bg-surface) / 0.92);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .ds-header-inner {
+      max-width: 900px; margin: 0 auto;
+      padding: 14px 20px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .ds-header h1 { font-size: 15px; font-weight: 700; color: rgb(var(--tm-text-primary)); }
+    .ds-header p  { font-size: 12px; color: rgb(var(--tm-text-muted)); margin-top: 1px; }
+
+    /* ── Nav pills (exact app pattern) ──────────────────────────────────── */
+    .ds-nav-link {
+      display: inline-block;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      background-color: rgb(var(--tm-bg-soft));
+      color: rgb(var(--tm-text-secondary));
+      cursor: pointer;
+      border: none;
+    }
+    .ds-nav-link.active { background-color: #06b6d4; color: #020617; }
+
+    /* ── Theme toggle button ─────────────────────────────────────────────── */
+    .ds-theme-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 6px;
+      border: 1px solid rgb(var(--tm-border));
+      background-color: rgb(var(--tm-bg-soft));
+      color: rgb(var(--tm-text-primary));
+      padding: 6px 10px;
+      font-size: 16px; line-height: 1;
+      cursor: pointer;
+    }
+    .ds-theme-btn:hover { border-color: #06b6d4; }
+
+    /* ─────────────────────────────────────────────────────────────────────── */
+    /*  COMPONENT TOKENS                                                        */
+    /* ─────────────────────────────────────────────────────────────────────── */
+
+    /* Swatch grid */
+    .swatch {
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid rgb(var(--tm-border));
+    }
+    .swatch-color {
+      height: 60px;
+      width: 100%;
+    }
+    .swatch-info {
+      padding: 8px 10px;
+      background-color: rgb(var(--tm-bg-surface));
+    }
+    .swatch-name { font-size: 12px; font-weight: 600; color: rgb(var(--tm-text-primary)); }
+    .swatch-var  { font-size: 10px; font-family: monospace; color: rgb(var(--tm-text-muted)); margin-top: 2px; display: block; }
+
+    /* ── Accent swatches ─────────────────────────────────────────────────── */
+    .accent-swatch {
+      height: 48px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 12px;
+      font-size: 12px; font-weight: 700;
+      border: 1px solid transparent;
+    }
+    .accent-swatch code { font-size: 10px; font-family: monospace; opacity: 0.75; }
+
+    /* ── Typography scale ────────────────────────────────────────────────── */
+    .type-row { display: flex; align-items: baseline; gap: 16px; padding: 10px 0; border-bottom: 1px solid rgb(var(--tm-border) / 0.5); }
+    .type-row:last-child { border-bottom: none; }
+    .type-meta { width: 160px; flex-shrink: 0; }
+    .type-meta .type-spec { font-size: 11px; font-family: monospace; color: rgb(var(--tm-text-muted)); }
+
+    /* ── Buttons ─────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 6px;
+      border: none; cursor: pointer;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-weight: 600;
+      transition: background-color 140ms ease, opacity 140ms ease, border-color 140ms ease;
+      white-space: nowrap;
+    }
+    .btn-md  { padding: 8px 12px; font-size: 13px; }
+    .btn-sm  { padding: 6px 10px; font-size: 11px; }
+
+    .btn-primary   { background-color: #06b6d4; color: #020617; }
+    .btn-primary:hover { background-color: #22d3ee; }
+    .btn-primary-dark { background-color: #0891b2; color: #fff; }
+    .btn-primary-dark:hover { background-color: #06b6d4; }
+
+    .btn-secondary { background-color: rgb(var(--tm-bg-soft)); color: rgb(var(--tm-text-secondary)); border: 1px solid rgb(var(--tm-border)); }
+    .btn-secondary:hover { background-color: rgb(var(--tm-border)); }
+
+    .btn-success   { background-color: #059669; color: #fff; }
+    .btn-success:hover { background-color: #10b981; }
+
+    .btn-danger    { background-color: #dc2626; color: #fff; }
+    .btn-danger:hover { background-color: #ef4444; }
+
+    .btn-warning   { background-color: #f59e0b; color: #020617; }
+    .btn-warning:hover { background-color: #fbbf24; }
+
+    .btn-violet    { background-color: #7c3aed; color: #fff; }
+    .btn-violet:hover { background-color: #8b5cf6; }
+
+    .btn-fuchsia   { background-color: #c026d3; color: #fff; }
+    .btn-fuchsia:hover { background-color: #d946ef; }
+
+    .btn-ghost {
+      background-color: transparent;
+      color: rgb(var(--tm-text-secondary));
+      border: 1px solid rgb(var(--tm-border));
+      border-radius: 999px;
+    }
+    .btn-ghost:hover { border-color: rgb(var(--tm-border-strong)); color: rgb(var(--tm-text-primary)); }
+
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Badges (traffic levels) ─────────────────────────────────────────── */
+    .badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 80px;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .badge-free   { background-color: #059669; color: #fff; }
+    .badge-medium { background-color: #f59e0b; color: #020617; }
+    .badge-heavy  { background-color: #dc2626; color: #fff; }
+    .badge-neutral { background-color: rgb(var(--tm-bg-soft)); color: rgb(var(--tm-text-muted)); border: 1px solid rgb(var(--tm-border)); }
+
+    /* ── Toggle ──────────────────────────────────────────────────────────── */
+    .toggle-track {
+      position: relative;
+      display: inline-flex;
+      height: 28px; width: 48px;
+      flex-shrink: 0;
+      align-items: center;
+      border-radius: 999px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: background-color 200ms ease;
+      background: none;
+      padding: 0;
+    }
+    .toggle-track.on  { background-color: #06b6d4; }
+    .toggle-track.off { background-color: rgb(var(--tm-bg-soft)); border-color: rgb(var(--tm-border)); }
+    .toggle-thumb {
+      display: block;
+      height: 20px; width: 20px;
+      border-radius: 50%;
+      background-color: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      transition: transform 200ms ease;
+    }
+    .toggle-track.on  .toggle-thumb { transform: translateX(20px); }
+    .toggle-track.off .toggle-thumb { transform: translateX(2px); }
+    .toggle-track:focus-visible { outline: 2px solid #06b6d4; outline-offset: 2px; }
+    .toggle-track:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Traffic level selector card ─────────────────────────────────────── */
+    .tls-card {
+      border-radius: 12px;
+      border: 1px solid rgb(var(--tm-border));
+      background-color: rgb(var(--tm-bg-surface));
+      padding: 12px;
+    }
+    .tls-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; min-height: 28px; }
+    .tls-title  { font-size: 14px; font-weight: 600; color: rgb(var(--tm-text-primary)); }
+    .tls-avatar { height: 28px; width: 28px; border-radius: 4px; background-color: rgb(var(--tm-bg-soft)); }
+    .tls-avatar img { height: 100%; width: 100%; object-fit: contain; border-radius: 4px; background: white; padding: 2px; }
+    .tls-buttons { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .tls-btn {
+      border-radius: 6px; border: 1px solid; padding: 8px 12px;
+      font-size: 13px; font-weight: 700;
+      cursor: pointer; transition: all 140ms ease;
+      font-family: 'Inter', system-ui, sans-serif;
+    }
+    .tls-btn-inactive { border-color: rgb(var(--tm-border)); background-color: rgb(var(--tm-bg-soft)); color: rgb(var(--tm-text-secondary)); }
+    .tls-btn-inactive:hover { border-color: rgb(var(--tm-border-strong)); background-color: rgb(var(--tm-border)); }
+    .tls-btn-free   { border-color: #6ee7b7; background-color: #10b981; color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,.2); }
+    .tls-btn-medium { border-color: #fde68a; background-color: #f59e0b; color: #020617; box-shadow: 0 2px 4px rgba(0,0,0,.2); }
+    .tls-btn-heavy  { border-color: #fca5a5; background-color: #ef4444; color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,.2); }
+
+    /* ── Route list card ─────────────────────────────────────────────────── */
+    .route-card {
+      border-radius: 12px;
+      border: 1px solid rgb(var(--tm-border));
+      background-color: rgb(var(--tm-bg-surface));
+      padding: 12px;
+      transition: border-color 140ms ease;
+    }
+    .route-card.selected {
+      border-color: #f97316;
+      box-shadow: 0 0 0 2px rgba(249,115,22,0.3);
+    }
+    .route-card:not(.selected):hover { border-color: rgb(var(--tm-border-strong)); }
+    .route-city { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: rgb(var(--tm-text-muted)); }
+    .route-name { font-size: 14px; font-weight: 700; color: rgb(var(--tm-text-primary)); margin-top: 4px; }
+    .route-meta { font-size: 11px; color: rgb(var(--tm-text-subtle)); margin-top: 2px; }
+
+    /* ── Session card ────────────────────────────────────────────────────── */
+    .session-card {
+      border-radius: 12px;
+      border: 1px solid rgb(var(--tm-border));
+      background-color: rgb(var(--tm-bg-surface));
+      padding: 16px;
+    }
+
+    /* ── Toast ───────────────────────────────────────────────────────────── */
+    .ds-toast {
+      border-radius: 16px;
+      border: 1px solid rgba(6,182,212,0.3);
+      background-color: rgb(2 6 23 / 0.95);
+      padding: 16px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+      backdrop-filter: blur(8px);
+    }
+    .theme-light .ds-toast { background-color: rgb(255 255 255 / 0.95); }
+
+    .toast-channel {
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.24em;
+      color: #67e8f9;
+    }
+    .theme-light .toast-channel { color: #0e7490; }
+    .toast-title   { font-size: 15px; font-weight: 700; color: rgb(var(--tm-text-primary)); margin-top: 4px; }
+    .toast-time    { font-size: 11px; color: rgb(var(--tm-text-muted)); margin-top: 3px; }
+
+    .toast-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      border-radius: 12px; padding: 8px 12px; margin-top: 8px;
+    }
+    .toast-row-free   { background-color: #059669; color: #fff; }
+    .toast-row-medium { background-color: #f59e0b; color: #020617; }
+    .toast-row-heavy  { background-color: #dc2626; color: #fff; }
+
+    /* ── Panel section ───────────────────────────────────────────────────── */
+    .panel-section {
+      border-radius: 12px;
+      border: 1px solid rgb(var(--tm-border));
+      background-color: rgb(var(--tm-bg-surface));
+      padding: 16px;
+    }
+    .panel-title { font-size: 18px; font-weight: 600; color: rgb(var(--tm-text-primary)); }
+
+    /* ── Form ────────────────────────────────────────────────────────────── */
+    .ds-input {
+      width: 100%;
+      border-radius: 6px;
+      border: 1px solid rgb(var(--tm-border));
+      background-color: rgb(var(--tm-bg-soft));
+      color: rgb(var(--tm-text-primary));
+      padding: 8px 10px;
+      font-size: 13px;
+      font-family: 'Inter', system-ui, sans-serif;
+      outline: none;
+    }
+    .ds-input::placeholder { color: rgb(var(--tm-text-subtle)); }
+    .ds-input:focus { border-color: #06b6d4; box-shadow: 0 0 0 2px rgba(6,182,212,0.25); }
+
+    .ds-label-text {
+      display: block; font-size: 12px; font-weight: 600;
+      color: rgb(var(--tm-text-muted)); margin-bottom: 5px;
+    }
+
+    /* ── Combobox / select ───────────────────────────────────────────────── */
+    .ds-select {
+      appearance: none;
+      border-radius: 6px;
+      border: 1px solid rgb(var(--tm-border));
+      background-color: rgb(var(--tm-bg-soft));
+      color: rgb(var(--tm-text-primary));
+      padding: 8px 32px 8px 10px;
+      font-size: 13px;
+      font-family: 'Inter', system-ui, sans-serif;
+      outline: none; cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+    }
+    .ds-select:focus { border-color: #06b6d4; }
+
+    /* ── Focus ring ──────────────────────────────────────────────────────── */
+    .focus-demo:focus-visible {
+      outline: 2px solid #06b6d4;
+      outline-offset: 2px;
+    }
+
+    /* ── Spacing scale ───────────────────────────────────────────────────── */
+    .space-bar {
+      height: 100%; border-radius: 4px;
+      background: linear-gradient(135deg, #06b6d4 0%, #7c3aed 100%);
+    }
+    .space-row { display: flex; align-items: center; gap: 12px; padding: 4px 0; }
+    .space-box { flex-shrink: 0; height: 24px; border-radius: 4px; background: linear-gradient(135deg, #06b6d4, #7c3aed); }
+    .space-meta { font-size: 11px; font-family: monospace; color: rgb(var(--tm-text-muted)); min-width: 90px; }
+
+    /* ── Icon avatar ─────────────────────────────────────────────────────── */
+    .icon-avatar {
+      border-radius: 4px;
+      background-color: rgb(var(--tm-bg-soft));
+    }
+    .icon-avatar.with-img { background-color: #fff; padding: 4px; object-fit: contain; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="ds-header">
+    <div class="ds-header-inner">
+      <div>
+        <h1>Traffic Monitor — Design System</h1>
+        <p>Extracted from source · auto-generated</p>
+      </div>
+      <button class="ds-theme-btn focus-demo" onclick="toggleTheme()" id="themeBtn" aria-label="Toggle theme">☀️</button>
+    </div>
+  </header>
+
+  <div class="ds-page">
+
+    <!-- Hero -->
+    <div style="padding-top: 48px;">
+      <p class="ds-page-title">Design System</p>
+      <p style="font-size:14px; color: rgb(var(--tm-text-muted)); margin-top: 6px;">
+        Single source of truth for colors, typography, spacing, and components.
+      </p>
+    </div>
+
+    <hr class="ds-divider" />
+
+    <!-- ── 1. COLOR TOKENS ─────────────────────────────────────────────── -->
+    <section class="ds-section">
+      <p class="ds-section-title">1 · Semantic Color Tokens</p>
+      <p style="font-size:13px; color:rgb(var(--tm-text-muted)); margin-bottom:20px;">
+        Defined as CSS custom properties on <code style="font-size:11px; font-family:monospace; background:rgb(var(--tm-bg-soft)); padding:1px 5px; border-radius:3px;">:root / .theme-dark / .theme-light</code>.
+        Values are raw RGB channels so they can be composed with opacity: <code style="font-size:11px; font-family:monospace; background:rgb(var(--tm-bg-soft)); padding:1px 5px; border-radius:3px;">rgb(var(--tm-bg-surface) / 0.9)</code>.
+      </p>
+
+      <div class="ds-grid ds-grid-4" style="margin-bottom:24px;">
+        <div class="swatch">
+          <div class="swatch-color" style="background:rgb(var(--tm-bg-app));"></div>
+          <div class="swatch-info">
+            <div class="swatch-name">bg-app</div>
+            <code class="swatch-var">--tm-bg-app</code>
+            <code class="swatch-var">dark: #020617 · light: #f8fafc</code>
+          </div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-color" style="background:rgb(var(--tm-bg-surface));"></div>
+          <div class="swatch-info">
+            <div class="swatch-name">bg-surface</div>
+            <code class="swatch-var">--tm-bg-surface</code>
+            <code class="swatch-var">dark: #0f172a · light: #ffffff</code>
+          </div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-color" style="background:rgb(var(--tm-bg-soft));"></div>
+          <div class="swatch-info">
+            <div class="swatch-name">bg-soft</div>
+            <code class="swatch-var">--tm-bg-soft</code>
+            <code class="swatch-var">dark: #1e293b · light: #f1f5f9</code>
+          </div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-color" style="background:rgb(var(--tm-border)); height:30px; margin-top:15px; border-radius:4px; margin-left:10px; margin-right:10px;"></div>
+          <div class="swatch-info" style="padding-top:6px;">
+            <div class="swatch-name">border</div>
+            <code class="swatch-var">--tm-border</code>
+            <code class="swatch-var">dark: #334155 · light: #cbd5e1</code>
+          </div>
+        </div>
+      </div>
+
+      <div class="ds-grid ds-grid-4">
+        <div class="swatch">
+          <div class="swatch-color" style="background:rgb(var(--tm-text-primary));"></div>
+          <div class="swatch-info">
+            <div class="swatch-name">text-primary</div>
+            <code class="swatch-var">--tm-text-primary</code>
+            <code class="swatch-var">dark: #f1f5f9 · light: #0f172a</code>
+          </div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-color" style="background:rgb(var(--tm-text-secondary));"></div>
+          <div class="swatch-info">
+            <div class="swatch-name">text-secondary</div>
+            <code class="swatch-var">--tm-text-secondary</code>
+            <code class="swatch-var">dark: #cbd5e1 · light: #1e293b</code>
+          </div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-color" style="background:rgb(var(--tm-text-muted));"></div>
+          <div class="swatch-info">
+            <div class="swatch-name">text-muted</div>
+            <code class="swatch-var">--tm-text-muted</code>
+            <code class="swatch-var">dark: #94a3b8 · light: #475569</code>
+          </div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-color" style="background:rgb(var(--tm-text-subtle));"></div>
+          <div class="swatch-info">
+            <div class="swatch-name">text-subtle</div>
+            <code class="swatch-var">--tm-text-subtle</code>
+            <code class="swatch-var">dark: #64748b · light: #64748b</code>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="ds-divider" />
+
+    <!-- ── 2. ACCENT COLORS ────────────────────────────────────────────── -->
+    <section class="ds-section">
+      <p class="ds-section-title">2 · Accent Colors</p>
+      <p style="font-size:13px; color:rgb(var(--tm-text-muted)); margin-bottom:20px;">
+        Hardcoded accent values — not theme-dependent. Each maps to a semantic role in the UI.
+      </p>
+      <div class="ds-flex-col">
+        <div class="accent-swatch" style="background:#06b6d4; color:#020617; border-color:#22d3ee;">
+          Cyan — Primary / Interactive (active nav, toggle on, CTA)
+          <code>#06b6d4 · cyan-500</code>
+        </div>
+        <div class="accent-swatch" style="background:#10b981; color:#fff; border-color:#34d399;">
+          Emerald — Success / Free-flow traffic / CSV export
+          <code>#10b981 · emerald-500</code>
+        </div>
+        <div class="accent-swatch" style="background:#f59e0b; color:#020617; border-color:#fcd34d;">
+          Amber — Warning / Medium traffic / Retry dead-letter
+          <code>#f59e0b · amber-500</code>
+        </div>
+        <div class="accent-swatch" style="background:#ef4444; color:#fff; border-color:#fca5a5;">
+          Red — Danger / Heavy traffic / Delete
+          <code>#ef4444 · red-500</code>
+        </div>
+        <div class="accent-swatch" style="background:#7c3aed; color:#fff; border-color:#a78bfa;">
+          Violet — Sync action
+          <code>#7c3aed · violet-600</code>
+        </div>
+        <div class="accent-swatch" style="background:#c026d3; color:#fff; border-color:#e879f9;">
+          Fuchsia — Retry + Sync action
+          <code>#c026d3 · fuchsia-600</code>
+        </div>
+        <div class="accent-swatch" style="background:#f97316; color:#fff; border-color:#fb923c;">
+          Orange — Selected route ring
+          <code>#f97316 · orange-500</code>
+        </div>
+      </div>
+    </section>
+
+    <hr class="ds-divider" />
+
+    <!-- ── 3. TYPOGRAPHY ───────────────────────────────────────────────── -->
+    <section class="ds-section">
+      <p class="ds-section-title">3 · Typography</p>
+      <p style="font-size:13px; color:rgb(var(--tm-text-muted)); margin-bottom:20px;">
+        Font: <strong>Inter</strong>. All weights 400–800. Size scale maps to Tailwind text-* utilities.
+      </p>
+
+      <div class="ds-card">
+        <div class="type-row">
+          <div class="type-meta">
+            <div class="ds-label">Page title</div>
+            <div class="type-spec">28px / 800 / -0.5px</div>
+          </div>
+          <div style="font-size:28px; font-weight:800; letter-spacing:-0.5px; color:rgb(var(--tm-text-primary));">Traffic Monitor</div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">
+            <div class="ds-label">Section heading · 2xl</div>
+            <div class="type-spec">24px / 600</div>
+          </div>
+          <div style="font-size:24px; font-weight:600; color:rgb(var(--tm-text-primary));">Sessions</div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">
+            <div class="ds-label">Card heading · xl</div>
+            <div class="type-spec">20px / 600</div>
+          </div>
+          <div style="font-size:20px; font-weight:600; color:rgb(var(--tm-text-primary));">Route Details</div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">
+            <div class="ds-label">App bar title · lg</div>
+            <div class="type-spec">18px / 600</div>
+          </div>
+          <div style="font-size:18px; font-weight:600; color:rgb(var(--tm-text-primary));">Traffic Monitor PWA</div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">
+            <div class="ds-label">Route name · base bold</div>
+            <div class="type-spec">15px / 700</div>
+          </div>
+          <div style="font-size:15px; font-weight:700; color:rgb(var(--tm-text-primary));">Downtown Ring Road</div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">
+            <div class="ds-label">Body / button · sm</div>
+            <div class="type-spec">13px / 400–600</div>
+          </div>
+          <div style="font-size:13px; color:rgb(var(--tm-text-secondary));">Observer name · recording started at 09:41</div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">
+            <div class="ds-label">Metadata · xs</div>
+            <div class="type-spec">11px / 400</div>
+          </div>
+          <div style="font-size:11px; color:rgb(var(--tm-text-muted));">12.34 km · 2 hours ago</div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">
+            <div class="ds-label">Badge / label · 2xs</div>
+            <div class="type-spec">11px / 700 / uppercase / +0.06em</div>
+          </div>
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:rgb(var(--tm-text-muted));">Budapest · Freeflow</div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">
+            <div class="ds-label">Channel label · eyebrow</div>
+            <div class="type-spec">11px / 700 / +0.24em</div>
+          </div>
+          <div style="font-size:11px; font-weight:700; letter-spacing:0.24em; text-transform:uppercase; color:#67e8f9;">Automatic reporting</div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="ds-divider" />
+
+    <!-- ── 4. SPACING ─────────────────────────────────────────────────── -->
+    <section class="ds-section">
+      <p class="ds-section-title">4 · Spacing Scale</p>
+      <p style="font-size:13px; color:rgb(var(--tm-text-muted)); margin-bottom:20px;">
+        4 px base unit. Mapping of Tailwind spacing tokens used in the app.
+      </p>
+      <div class="ds-card">
+        <div class="space-row"><div class="space-box" style="width:4px;"></div><span class="space-meta">1 · 4px</span><span class="ds-label">gap-1 · p-1</span></div>
+        <div class="space-row"><div class="space-box" style="width:6px;"></div><span class="space-meta">1.5 · 6px</span><span class="ds-label">gap-1.5</span></div>
+        <div class="space-row"><div class="space-box" style="width:8px;"></div><span class="space-meta">2 · 8px</span><span class="ds-label">gap-2 · p-2 · px-2 · py-2</span></div>
+        <div class="space-row"><div class="space-box" style="width:10px;"></div><span class="space-meta">2.5 · 10px</span><span class="ds-label">px-2.5</span></div>
+        <div class="space-row"><div class="space-box" style="width:12px;"></div><span class="space-meta">3 · 12px</span><span class="ds-label">gap-3 · p-3 · px-3 · py-3</span></div>
+        <div class="space-row"><div class="space-box" style="width:14px;"></div><span class="space-meta">3.5 · 14px</span><span class="ds-label">px-3 py-1.5 (button-sm)</span></div>
+        <div class="space-row"><div class="space-box" style="width:16px;"></div><span class="space-meta">4 · 16px</span><span class="ds-label">p-4 · px-4 · gap-4 (panel padding)</span></div>
+        <div class="space-row"><div class="space-box" style="width:20px;"></div><span class="space-meta">5 · 20px</span><span class="ds-label">px-5 (page gutter mobile)</span></div>
+        <div class="space-row"><div class="space-box" style="width:24px;"></div><span class="space-meta">6 · 24px</span><span class="ds-label">py-6 (main padding-y)</span></div>
+      </div>
+    </section>
+
+    <hr class="ds-divider" />
+
+    <!-- ── 5. BORDER RADIUS ────────────────────────────────────────────── -->
+    <section class="ds-section">
+      <p class="ds-section-title">5 · Border Radius</p>
+      <div class="ds-grid ds-grid-4">
+        <div style="text-align:center;">
+          <div style="height:48px; background:rgb(var(--tm-bg-soft)); border:1px solid rgb(var(--tm-border)); border-radius:4px; margin-bottom:8px;"></div>
+          <div class="ds-label">rounded · 4px</div>
+          <div style="font-size:11px; color:rgb(var(--tm-text-subtle)); margin-top:2px;">IconAvatar</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="height:48px; background:rgb(var(--tm-bg-soft)); border:1px solid rgb(var(--tm-border)); border-radius:6px; margin-bottom:8px;"></div>
+          <div class="ds-label">rounded-md · 6px</div>
+          <div style="font-size:11px; color:rgb(var(--tm-text-subtle)); margin-top:2px;">Buttons, inputs, nav links</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="height:48px; background:rgb(var(--tm-bg-soft)); border:1px solid rgb(var(--tm-border)); border-radius:12px; margin-bottom:8px;"></div>
+          <div class="ds-label">rounded-xl · 12px</div>
+          <div style="font-size:11px; color:rgb(var(--tm-text-subtle)); margin-top:2px;">Cards, panels, selectors</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="height:48px; background:rgb(var(--tm-bg-soft)); border:1px solid rgb(var(--tm-border)); border-radius:16px; margin-bottom:8px;"></div>
+          <div class="ds-label">rounded-2xl · 16px</div>
+          <div style="font-size:11px; color:rgb(var(--tm-text-subtle)); margin-top:2px;">Toast notifications</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:12px; margin-top:12px;">
+        <div style="text-align:center; flex:1;">
+          <div style="height:28px; background:rgb(var(--tm-bg-soft)); border:1px solid rgb(var(--tm-border)); border-radius:999px; margin-bottom:8px;"></div>
+          <div class="ds-label">rounded-full · 999px</div>
+          <div style="font-size:11px; color:rgb(var(--tm-text-subtle)); margin-top:2px;">Badges, toggle, dismiss pill</div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="ds-divider" />
+
+    <!-- ── 6. BUTTONS ─────────────────────────────────────────────────── -->
+    <section class="ds-section">
+      <p class="ds-section-title">6 · Buttons</p>
+      <p style="font-size:13px; color:rgb(var(--tm-text-muted)); margin-bottom:20px;">
+        All buttons: <code style="font-size:11px; font-family:monospace; background:rgb(var(--tm-bg-soft)); padding:1px 5px; border-radius:3px;">rounded-md · font-semibold · px-3 py-2 · text-sm</code>.
+        Semantic variants map to action intent.
+      </p>
+
+      <div class="ds-card">
+        <p class="ds-label" style="margin-bottom:12px;">Standard (md) — px-3 py-2 text-sm</p>
+        <div class="ds-flex" style="margin-bottom:20px;">
+          <button class="btn btn-md btn-primary focus-demo">Open</button>
+          <button class="btn btn-md btn-primary-dark focus-demo">Import</button>
+          <button class="btn btn-md btn-success focus-demo">CSV</button>
+          <button class="btn btn-md btn-secondary focus-demo">JSON</button>
+          <button class="btn btn-md btn-violet focus-demo">Sync</button>
+          <button class="btn btn-md btn-fuchsia focus-demo">Retry + Sync</button>
+          <button class="btn btn-md btn-warning focus-demo">Retry dead-letter</button>
+          <button class="btn btn-md btn-danger focus-demo">Delete</button>
+          <button class="btn btn-md btn-primary focus-demo" disabled>Disabled</button>
+        </div>
+
+        <p class="ds-label" style="margin-bottom:12px;">Small (sm) — px-3 py-1.5 text-xs</p>
+        <div class="ds-flex" style="margin-bottom:20px;">
+          <button class="btn btn-sm btn-secondary focus-demo">Edit</button>
+          <button class="btn btn-sm btn-danger focus-demo">🗑️</button>
+          <button class="btn btn-sm btn-primary focus-demo">Select</button>
+        </div>
+
+        <p class="ds-label" style="margin-bottom:12px;">Ghost pill — dismiss / inline action</p>
+        <div class="ds-flex">
+          <button class="btn btn-ghost focus-demo" style="padding:4px 12px; font-size:11px; font-weight:600;">Dismiss</button>
+          <button class="btn btn-ghost focus-demo" style="padding:4px 12px; font-size:11px; font-weight:600;">Cancel</button>
+        </div>
+      </div>
+
+      <div class="ds-surface-soft" style="margin-top:12px;">
+        <p style="font-size:12px; color:rgb(var(--tm-text-muted));">
+          <strong style="color:rgb(var(--tm-text-secondary));">Colour → intent mapping:</strong>
+          Cyan = primary/CTA · Cyan-dark = import/secondary-CTA · Emerald = success export ·
+          Slate = neutral secondary · Violet = sync · Fuchsia = retry+sync · Amber = retry dead-letter ·
+          Red = destructive
+        </p>
+      </div>
+    </section>
+
+    <hr class="ds-divider" />
+
+    <!-- ── 7. BADGES ──────────────────────────────────────────────────── -->
+    <section class="ds-section">
+      <p class="ds-section-title">7 · Traffic Level Badges</p>
+      <p style="font-size:13px; color:rgb(var(--tm-text-muted)); margin-bottom:20px;">
+        Pill badges for inline traffic assessment display. <code style="font-size:11px; font-family:monospace; background:rgb(var(--tm-bg-soft)); padding:1px 5px; border-radius:3px;">rounded-full · min-w-20 · text-[11px] font-bold uppercase tracking-wide</code>
+      </p>
+      <div class="ds-flex">
+        <span class="badge badge-free">Freeflow</span>
+        <span class="badge badge-medium">Medium</span>
+        <span class="badge badge-heavy">High</span>
+        <span class="badge badge-neutral">—</span>
+
+        <span style="margin-left:16px; font-size:12px; color:rgb(var(--tm-text-muted));">Compact:</span>
+        <span class="badge badge-free" style="min-width:48px;">FREE</span>
+        <span class="badge badge-medium" style="min-width:48px;">MED</span>
+        <span class="badge badge-heavy" style="min-width:48px;">HEAVY</span>
+      </div>
+    </section>
+
+    <hr class="ds-divider" />
+
+    <!-- ── 8. TOGGLE ──────────────────────────────────────────────────── -->
+    <section class="ds-section">
+      <p class="ds-section-title">8 · Toggle Switch</p>
+      <p style="font-size:13px; color:rgb(var(--tm-text-muted)); margin-bottom:20px;">
+        <code style="font-size:11px; font-family:monospace; background:rgb(var(--tm-bg-soft)); padding:1px 5px; border-radius:3px;">h-7 w-12 rounded-full · thumb h-5 w-5</code> · Focus ring: cyan-500
+      </p>
+      <div class="ds-flex">
+        <button class="toggle-track on focus-demo" role="switch" aria-checked="true" id="tog1" onclick="toggleSwitch('tog1')">
+          <span class="toggle-thumb"></span>
+        </button>
+        <span class="ds-label">On (cyan-500)</span>
+
+        <button class="toggle-track off focus-demo" role="switch" aria-checked="false" id="tog2" style="margin-left:20px;" onclick="toggleSwitch('tog2')">
+          <span class="toggle-thumb"></span>
+        </button>
+        <span class="ds-label">Off (bg-soft)</span>
+
+        <button class="toggle-track off focus-demo" role="switch" aria-checked="false" disabled style="margin-left:20px; opacity:0.45; cursor:not-allowed;">
+          <span class="toggle-thumb"></span>
+        </button>
+        <span class="ds-label">Disabled</span>
+      </div>
+      <p style="font-size:12px; color:rgb(var(--tm-text-muted)); margin-top:12px;">Try clicking — toggles are interactive.</p>
+    </section>
+
+    <hr class="ds-divider" />
+
+    <!-- ── 9. NAVIGATION ──────────────────────────────────────────────── -->
+    <section class="ds-section">
+      <p class="ds-section-title">9 · Navigation Links</p>
+      <p style="font-size:13px; color:rgb(var(--tm-text-muted)); margin-bottom:20px;">
+        Pill nav links. Active: <code style="font-size:11px; font-family:monospace; background:rgb(var(--tm-bg-soft)); padding:1px 5px; border-radius:3px;">bg-cyan-500 text-slate-950</code> ·
+        Inactive: <code style="font-size:11px; font-family:monospace; background:rgb(var(--tm-bg-soft)); padding:1px 5px; border-radius:3px;">bg-slate-800 text-slate-200</code>
+      </p>
+      <nav class="ds-flex">
+        <button class="ds-nav-link active focus-demo">Recording</button>
+        <button class="ds-nav-link focus-demo">Drive Map</button>
+        <button class="ds-nav-link focus-demo">Sessions</button>
+        <button class="ds-nav-link focus-demo">Routes</button>
+        <button class="ds-nav-link focus-demo">Settings</button>
+      </nav>
+    </section>
+
+    <hr class="ds-divider" />
+
+    <!-- ── 10. SURFACE / CARDS ────────────────────────────────────────── -->
+    <section class="ds-section">
+      <p class="ds-section-title">10 · Surfaces & Cards</p>
+
+      <div class="ds-grid ds-grid-2">
+
+        <!-- Route card (default) -->
+        <div>
+          <p class="ds-label" style="margin-bottom:8px;">Route Card — default</p>
+          <div class="route-card">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+              <div style="flex:1; min-width:0;">
+                <p class="route-city">Budapest</p>
+                <p class="route-name">Downtown Ring Road</p>
+                <p class="route-meta">12.34 km</p>
+              </div>
+              <div style="display:flex; gap:8px; flex-shrink:0;">
+                <button class="btn btn-sm btn-secondary focus-demo">Edit</button>
+                <button class="btn btn-sm btn-danger focus-demo">🗑️</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Route card (selected) -->
+        <div>
+          <p class="ds-label" style="margin-bottom:8px;">Route Card — selected (orange ring)</p>
+          <div class="route-card selected">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+              <div style="flex:1; min-width:0;">
+                <p class="route-city">Budapest</p>
+                <p class="route-name">Outer Ring Road</p>
+                <p class="route-meta">8.71 km</p>
+              </div>
+              <div style="display:flex; gap:8px; flex-shrink:0;">
+                <button class="btn btn-sm btn-secondary focus-demo">Edit</button>
+                <button class="btn btn-sm btn-danger focus-demo">🗑️</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel section -->
+        <div>
+          <p class="ds-label" style="margin-bottom:8px;">Panel Section — PanelSection atom</p>
+          <div class="panel-section">
+            <h2 class="panel-title">Observer Settings</h2>
+            <p style="font-size:13px; color:rgb(var(--tm-text-muted)); margin-top:8px;">
+              Panel body content goes here.
+            </p>
+          </div>
+        </div>
+
+        <!-- Session card -->
+        <div>
+          <p class="ds-label" style="margin-bottom:8px;">Session Card</p>
+          <div class="session-card">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+              <div class="icon-avatar" style="width:28px;height:28px;"></div>
+              <div>
+                <p style="font-size:14px; font-weight:700; color:rgb(var(--tm-text-primary));">Morning Commute</p>
+                <p style="font-size:11px; color:rgb(var(--tm-text-muted));">2026-06-11 · 14 records</p>
+              </div>
+              <span class="badge badge-free" style="margin-left:auto;">Freeflow</span>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+              <button class="btn btn-sm btn-primary focus-demo">Open</button>
+              <button class="btn btn-sm btn-success focus-demo">CSV</button>
+              <button class="btn btn-sm btn-secondary focus-demo">JSON</button>
+              <button class="btn btn-sm btn-violet focus-demo">Sync</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <hr class="ds-divider" />
+
+    <!-- ── 11. TRAFFIC LEVEL SELECTOR ────────────────────────────────── -->
+    <section class="ds-section">
+      <p class="ds-section-title">11 · Traffic Level Selector</p>
+      <p style="font-size:13px; color:rgb(var(--tm-text-muted)); margin-bottom:20px;">
+        Used in the recording panel. Each selector card shows an icon + provider name + 3 level buttons.
+        Selected button gets the traffic colour; others stay in the inactive slate style.
+      </p>
+
+      <div class="ds-grid ds-grid-3">
+        <!-- Observer — FREE selected -->
+        <div class="tls-card">
+          <div class="tls-header">
+            <div class="tls-avatar"></div>
+            <p class="tls-title">Observer</p>
+          </div>
+          <div class="tls-buttons">
+            <button class="tls-btn tls-btn-free">FREE</button>
+            <button class="tls-btn tls-btn-inactive">MED</button>
+            <button class="tls-btn tls-btn-inactive">HEAVY</button>
+          </div>
+        </div>
+        <!-- Provider A — MED selected -->
+        <div class="tls-card">
+          <div class="tls-header">
+            <div class="tls-avatar"></div>
+            <p class="tls-title">Provider A</p>
+          </div>
+          <div class="tls-buttons">
+            <button class="tls-btn tls-btn-inactive">FREE</button>
+            <button class="tls-btn tls-btn-medium">MED</button>
+            <button class="tls-btn tls-btn-inactive">HEAVY</button>
+          </div>
+        </div>
+        <!-- Provider B — HEAVY selected -->
+        <div class="tls-card">
+          <div class="tls-header">
+            <div class="tls-avatar"></div>
+            <p class="tls-title">Provider B</p>
+          </div>
+          <div class="tls-buttons">
+            <button class="tls-btn tls-btn-inactive">FREE</button>
+            <button class="tls-btn tls-btn-inactive">MED</button>
+            <button class="tls-btn tls-btn-heavy">HEAVY</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="ds-divider" />
+
+    <!-- ── 12. TOAST NOTIFICATION ─────────────────────────────────────── -->
+    <section class="ds-section">
+      <p class="ds-section-title">12 · Record Toast</p>
+      <p style="font-size:13px; color:rgb(var(--tm-text-muted)); margin-bottom:20px;">
+        Fixed top-right overlay after a record is saved.
+        <code style="font-size:11px; font-family:monospace; background:rgb(var(--tm-bg-soft)); padding:1px 5px; border-radius:3px;">rounded-2xl · border border-cyan-500/30 · bg-slate-950/95 · backdrop-blur</code>
+      </p>
+      <div style="max-width: 480px;">
+        <div class="ds-toast">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+            <div>
+              <p class="toast-channel">Automatic reporting</p>
+              <p class="toast-title">New record saved</p>
+              <p class="toast-time">11/06/2026, 09:41:32</p>
+            </div>
+            <button class="btn btn-ghost focus-demo" style="padding:4px 12px; font-size:11px; font-weight:600; flex-shrink:0;">Dismiss</button>
+          </div>
+          <ul style="list-style:none; margin-top:14px; display:flex; flex-direction:column; gap:8px;">
+            <li class="toast-row toast-row-free">
+              <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                <div style="width:24px;height:24px;border-radius:4px;background:rgba(0,0,0,0.15);flex-shrink:0;"></div>
+                <span style="font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Observer</span>
+              </div>
+              <span class="badge" style="background:rgba(0,0,0,0.15); color:inherit; min-width:48px; flex-shrink:0;">FREE</span>
+            </li>
+            <li class="toast-row toast-row-medium">
+              <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                <div style="width:24px;height:24px;border-radius:4px;background:rgba(0,0,0,0.15);flex-shrink:0;"></div>
+                <span style="font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Provider A</span>
+              </div>
+              <span class="badge" style="background:rgba(0,0,0,0.15); color:inherit; min-width:48px; flex-shrink:0;">MED</span>
+            </li>
+            <li class="toast-row toast-row-heavy">
+              <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                <div style="width:24px;height:24px;border-radius:4px;background:rgba(0,0,0,0.15);flex-shrink:0;"></div>
+                <span style="font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Provider B</span>
+              </div>
+              <span class="badge" style="background:rgba(0,0,0,0.15); color:inherit; min-width:48px; flex-shrink:0;">HEAVY</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <hr class="ds-divider" />
+
+    <!-- ── 13. FORM CONTROLS ───────────────────────────────────────────── -->
+    <section class="ds-section">
+      <p class="ds-section-title">13 · Form Controls</p>
+
+      <div class="ds-grid ds-grid-2">
+        <div>
+          <label class="ds-label-text" for="demo-input">Text input</label>
+          <input id="demo-input" class="ds-input focus-demo" type="text" placeholder="Observer name…" />
+        </div>
+        <div>
+          <label class="ds-label-text" for="demo-select">Select / combobox</label>
+          <select id="demo-select" class="ds-select focus-demo" style="width:100%;">
+            <option>All cities</option>
+            <option>Budapest</option>
+            <option>Debrecen</option>
+          </select>
+        </div>
+        <div>
+          <label class="ds-label-text" for="demo-number">Number input</label>
+          <input id="demo-number" class="ds-input focus-demo" type="number" value="5" min="1" max="60" />
+        </div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <label class="ds-label-text">Toggle with label</label>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button class="toggle-track on focus-demo" role="switch" aria-checked="true" id="tog3" onclick="toggleSwitch('tog3')">
+              <span class="toggle-thumb"></span>
+            </button>
+            <span style="font-size:13px; color:rgb(var(--tm-text-secondary));">Enable manual beep</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button class="toggle-track off focus-demo" role="switch" aria-checked="false" id="tog4" onclick="toggleSwitch('tog4')">
+              <span class="toggle-thumb"></span>
+            </button>
+            <span style="font-size:13px; color:rgb(var(--tm-text-secondary));">Warning vibration</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="ds-divider" />
+
+    <!-- ── 14. ICON AVATAR ─────────────────────────────────────────────── -->
+    <section class="ds-section">
+      <p class="ds-section-title">14 · Icon Avatar</p>
+      <p style="font-size:13px; color:rgb(var(--tm-text-muted)); margin-bottom:16px;">
+        Square avatar used for provider icons. Empty state is a slate placeholder rectangle.
+      </p>
+      <div class="ds-flex">
+        <!-- Empty lg -->
+        <div>
+          <div class="icon-avatar" style="width:28px;height:28px;border-radius:4px;"></div>
+          <p class="ds-label" style="margin-top:6px; text-align:center;">h-7 w-7</p>
+        </div>
+        <div>
+          <div class="icon-avatar" style="width:24px;height:24px;border-radius:4px;"></div>
+          <p class="ds-label" style="margin-top:6px; text-align:center;">h-6 w-6</p>
+        </div>
+        <div>
+          <div class="icon-avatar" style="width:20px;height:20px;border-radius:4px;"></div>
+          <p class="ds-label" style="margin-top:6px; text-align:center;">h-5 w-5</p>
+        </div>
+        <!-- With image (simulated) -->
+        <div style="margin-left:16px;">
+          <div style="width:28px;height:28px;border-radius:4px;background:#fff;padding:4px;display:flex;align-items:center;justify-content:center;">
+            <span style="font-size:14px;">🚗</span>
+          </div>
+          <p class="ds-label" style="margin-top:6px; text-align:center;">with img</p>
+        </div>
+      </div>
+    </section>
+
+    <hr class="ds-divider" />
+
+    <!-- ── 15. FOCUS & ACCESSIBILITY ─────────────────────────────────── -->
+    <section class="ds-section">
+      <p class="ds-section-title">15 · Focus & Accessibility</p>
+      <p style="font-size:13px; color:rgb(var(--tm-text-muted)); margin-bottom:16px;">
+        All interactive elements use <strong>keyboard-accessible focus rings</strong>. Focus style: <code style="font-size:11px; font-family:monospace; background:rgb(var(--tm-bg-soft)); padding:1px 5px; border-radius:3px;">outline: 2px solid cyan-500; outline-offset: 2px</code>
+        (applied via <code style="font-size:11px; font-family:monospace; background:rgb(var(--tm-bg-soft)); padding:1px 5px; border-radius:3px;">focus-visible:ring-2 focus-visible:ring-cyan-500</code>).
+        Press Tab to navigate and see rings.
+      </p>
+      <div class="ds-flex">
+        <button class="btn btn-md btn-primary focus-demo">Tab to me</button>
+        <button class="btn btn-md btn-secondary focus-demo">Or me</button>
+        <button class="toggle-track off focus-demo" role="switch" id="tog5" onclick="toggleSwitch('tog5')">
+          <span class="toggle-thumb"></span>
+        </button>
+        <input class="ds-input focus-demo" style="width:160px;" placeholder="Or focus here…" />
+      </div>
+    </section>
+
+    <hr class="ds-divider" style="margin-bottom:0;" />
+
+    <footer style="padding: 24px 0; text-align:center;">
+      <p style="font-size:11px; color:rgb(var(--tm-text-subtle));">
+        Traffic Monitor PWA · Design System · Generated 2026-06-11
+      </p>
+    </footer>
+
+  </div><!-- /ds-page -->
+
+  <script>
+    // ── Theme toggle ────────────────────────────────────────────────────
+    const html = document.documentElement
+    const btn  = document.getElementById('themeBtn')
+
+    function toggleTheme() {
+      const isDark = html.classList.contains('theme-dark')
+      html.classList.toggle('theme-dark',  !isDark)
+      html.classList.toggle('theme-light',  isDark)
+      btn.textContent = isDark ? '🌙' : '☀️'
+    }
+
+    // ── Toggle switch ───────────────────────────────────────────────────
+    function toggleSwitch(id) {
+      const el    = document.getElementById(id)
+      const isOn  = el.classList.contains('on')
+      el.classList.toggle('on',  !isOn)
+      el.classList.toggle('off',  isOn)
+      el.setAttribute('aria-checked', String(!isOn))
+    }
+  </script>
+</body>
+</html>

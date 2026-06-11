@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { formatDistanceStrict } from 'date-fns'
 import { SessionActionButtons, SessionNameEditor } from './molecules'
 import {
@@ -14,7 +14,7 @@ function getDuration(startTime, endTime) {
   return formatDistanceStrict(start, end)
 }
 
-export default function SessionCard({
+function SessionCard({
   session,
   onOpen,
   onDelete,
@@ -82,3 +82,5 @@ export default function SessionCard({
     </article>
   )
 }
+
+export default memo(SessionCard)

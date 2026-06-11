@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
 import L from 'leaflet'
 
 const DEFAULT_CENTER = [47.4979, 19.0402]
@@ -15,7 +15,7 @@ function normalizePoints(points) {
     .map((point) => [point.lat, point.lon])
 }
 
-export default function RouteMap({
+function RouteMap({
   className,
   points,
   overlayPoints,
@@ -48,6 +48,8 @@ export default function RouteMap({
   const startMarkerRef = useRef(null)
   const endMarkerRef = useRef(null)
   const routeFittedRef = useRef(false)
+  const renderedCountRef = useRef(0)
+  const prevPathColorRef = useRef(null)
   const driveModeRef = useRef(false)
   const onZoomLevelChangeRef = useRef(onZoomLevelChange)
   const initialZoomRef = useRef(defaultZoom)
@@ -129,6 +131,8 @@ export default function RouteMap({
       currentMarkerRef.current = null
       startMarkerRef.current = null
       endMarkerRef.current = null
+      renderedCountRef.current = 0
+      prevPathColorRef.current = null
       routeFittedRef.current = false
     }
   }, [])
@@ -146,9 +150,36 @@ export default function RouteMap({
           weight: 5,
           opacity: 0.9,
         }).addTo(map)
+        renderedCountRef.current = latLngPoints.length
+        prevPathColorRef.current = pathColor
       } else {
-        pathRef.current.setLatLngs(latLngPoints)
-        pathRef.current.setStyle({ color: pathColor })
+        // During recording the path grows by appending one point per second.
+        // Append just the new tail instead of rebuilding the whole polyline
+        // (which is O(n) and grows with trip length). Fall back to a full
+        // replace whenever the array isn't a strict extension of what's drawn
+        // (new session, loaded route, cleared path).
+        const rendered = renderedCountRef.current
+        const drawn = pathRef.current.getLatLngs()
+        const isAppend =
+          rendered > 0 &&
+          latLngPoints.length > rendered &&
+          drawn.length === rendered &&
+          drawn[rendered - 1].lat === latLngPoints[rendered - 1][0] &&
+          drawn[rendered - 1].lng === latLngPoints[rendered - 1][1]
+
+        if (isAppend) {
+          for (let i = rendered; i < latLngPoints.length; i += 1) {
+            pathRef.current.addLatLng(latLngPoints[i])
+          }
+        } else {
+          pathRef.current.setLatLngs(latLngPoints)
+        }
+        renderedCountRef.current = latLngPoints.length
+
+        if (prevPathColorRef.current !== pathColor) {
+          pathRef.current.setStyle({ color: pathColor })
+          prevPathColorRef.current = pathColor
+        }
       }
 
       if (showStartEndMarkers) {
@@ -198,6 +229,8 @@ export default function RouteMap({
         map.removeLayer(endMarkerRef.current)
         endMarkerRef.current = null
       }
+      renderedCountRef.current = 0
+      prevPathColorRef.current = null
       routeFittedRef.current = false
     }
   }, [fitRoute, isDriveModeEnabled, latLngPoints, pathColor, showStartEndMarkers])
@@ -264,7 +297,10 @@ export default function RouteMap({
     }
 
     if (isDriveModeEnabled) {
-      map.setView(latLng, map.getZoom(), { animate: true })
+      // Recenter without animation on every GPS fix. Animated pans run an
+      // easing loop on the compositor for each fix, keeping the GPU busy
+      // continuously while driving — a major battery cost.
+      map.setView(latLng, map.getZoom(), { animate: false })
     }
   }, [currentLocation, isDriveModeEnabled, showCurrentMarker])
 
@@ -279,7 +315,7 @@ export default function RouteMap({
       return
     }
 
-    map.setView(latLng, map.getZoom(), { animate: true })
+    map.setView(latLng, map.getZoom(), { animate: false })
   }, [isDriveModeEnabled])
 
   const notifyDriveModeChange = useCallback(
@@ -376,3 +412,5 @@ export default function RouteMap({
     </div>
   )
 }
+
+export default memo(RouteMap)

@@ -8,6 +8,7 @@ import {
   RouteListCard,
 } from '../components'
 import { db } from '../db'
+import { filterRoutesByCity, getRouteCities } from '../hooks/useSavedRoutes'
 import { useSettings } from '../hooks/useSettings'
 import { parseGpx } from '../utils/gpxParser'
 import { getSessionPathDistanceKm } from '../utils/sessionMetrics'
@@ -46,17 +47,12 @@ export default function RoutesPage() {
     loadRoutes()
   }, [])
 
-  const routeCities = useMemo(() => {
-    const unique = Array.from(new Set(routes.map((route) => route.city).filter(Boolean)))
-    return unique.sort((a, b) => a.localeCompare(b, 'en'))
-  }, [routes])
+  const routeCities = useMemo(() => getRouteCities(routes), [routes])
 
-  const filteredRoutes = useMemo(() => {
-    if (!cityFilter) {
-      return routes
-    }
-    return routes.filter((route) => route.city === cityFilter)
-  }, [routes, cityFilter])
+  const filteredRoutes = useMemo(
+    () => filterRoutesByCity(routes, cityFilter),
+    [routes, cityFilter],
+  )
 
   useEffect(() => {
     if (!cityComboboxOpen) {

@@ -440,17 +440,27 @@ export async function addEntry({
 
 export async function listSessionsWithCounts() {
   const sessions = await db.sessions.orderBy('startTime').reverse().toArray()
-  const entries = await db.entries.toArray()
-  const counts = entries.reduce((acc, entry) => {
+  if (sessions.length === 0) {
+    return []
+  }
+
+  // Total entries per session: read just the `sessionId` index keys (one
+  // lightweight key per entry) instead of deserializing every entry object.
+  const sessionIdKeys = await db.entries.orderBy('sessionId').keys()
+  const totals = sessionIdKeys.reduce((acc, sessionId) => {
+    acc[sessionId] = (acc[sessionId] || 0) + 1
+    return acc
+  }, {})
+
+  // Sync sub-counts only concern not-yet-synced entries, which are a small
+  // subset; synced entries contribute only to the totals computed above.
+  const unsynced = await db.entries.where('synced').equals(false).toArray()
+  const subCounts = unsynced.reduce((acc, entry) => {
     const attempts = entry.syncAttempts || 0
-    const computedStatus = entry.syncStatus || (entry.synced ? 'synced' : 'pending')
+    const computedStatus = entry.syncStatus || 'pending'
     const isDeadLetter = computedStatus === 'dead-letter' || attempts >= MAX_SYNC_ATTEMPTS
 
-    acc[entry.sessionId] = (acc[entry.sessionId] || 0) + 1
-    if (!entry.synced) {
-      acc[`${entry.sessionId}:unsynced`] =
-        (acc[`${entry.sessionId}:unsynced`] || 0) + 1
-    }
+    acc[`${entry.sessionId}:unsynced`] = (acc[`${entry.sessionId}:unsynced`] || 0) + 1
     if (computedStatus === 'failed') {
       acc[`${entry.sessionId}:failed`] = (acc[`${entry.sessionId}:failed`] || 0) + 1
     }
@@ -462,10 +472,10 @@ export async function listSessionsWithCounts() {
 
   return sessions.map((session) => ({
     ...session,
-    entryCount: counts[session.id] || 0,
-    unsyncedCount: counts[`${session.id}:unsynced`] || 0,
-    failedCount: counts[`${session.id}:failed`] || 0,
-    deadLetterCount: counts[`${session.id}:dead`] || 0,
+    entryCount: totals[session.id] || 0,
+    unsyncedCount: subCounts[`${session.id}:unsynced`] || 0,
+    failedCount: subCounts[`${session.id}:failed`] || 0,
+    deadLetterCount: subCounts[`${session.id}:dead`] || 0,
   }))
 }
 

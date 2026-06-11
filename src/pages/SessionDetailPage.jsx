@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import 'leaflet/dist/leaflet.css'
 import {
-  db,
   getDeadLetterEntriesBySessionId,
   getEntriesBySessionId,
   getRetryableUnsyncedEntriesBySessionId,
@@ -13,6 +12,7 @@ import {
   resetEntriesForRetry,
   setSessionPlannedRoute,
 } from '../db'
+import { useSavedRoutes } from '../hooks/useSavedRoutes'
 import { useSettings } from '../hooks/useSettings'
 import { syncEntriesToAzure } from '../utils/azureSync'
 import { exportLegacyCsv } from '../utils/csvExport'
@@ -40,7 +40,6 @@ export default function SessionDetailPage() {
   const { id } = useParams()
   const [session, setSession] = useState(null)
   const [entries, setEntries] = useState([])
-  const [savedRoutes, setSavedRoutes] = useState([])
   const [routePickerOpen, setRoutePickerOpen] = useState(false)
   const [routeCityFilter, setRouteCityFilter] = useState('')
   const [routeCityComboboxOpen, setRouteCityComboboxOpen] = useState(false)
@@ -48,18 +47,17 @@ export default function SessionDetailPage() {
   const [statusMessage, setStatusMessage] = useState('')
   const [showPath, setShowPath] = useState(true)
   const { settings } = useSettings()
+  const { cities: routeCities, filterByCity } = useSavedRoutes()
   const canSync = Boolean(settings?.azureEndpointUrl && settings?.azureApiKey)
 
   useEffect(() => {
     async function load() {
-      const [loadedSession, loadedEntries, loadedRoutes] = await Promise.all([
+      const [loadedSession, loadedEntries] = await Promise.all([
         getSessionById(id),
         getEntriesBySessionId(id),
-        db.routes.orderBy('city').toArray(),
       ])
       setSession(loadedSession)
       setEntries(loadedEntries)
-      setSavedRoutes(loadedRoutes)
     }
     load()
   }, [id])
@@ -91,17 +89,10 @@ export default function SessionDetailPage() {
     )
   }, [session])
 
-  const routeCities = useMemo(() => {
-    const set = new Set(savedRoutes.map((route) => route.city).filter(Boolean))
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'en'))
-  }, [savedRoutes])
-
-  const filteredRoutes = useMemo(() => {
-    if (!routeCityFilter) {
-      return savedRoutes
-    }
-    return savedRoutes.filter((route) => route.city === routeCityFilter)
-  }, [savedRoutes, routeCityFilter])
+  const filteredRoutes = useMemo(
+    () => filterByCity(routeCityFilter),
+    [filterByCity, routeCityFilter],
+  )
 
   if (!session) {
     return <p>Loading session…</p>

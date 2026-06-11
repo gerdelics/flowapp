@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import 'leaflet/dist/leaflet.css'
-import { RouteMap, RouteOverlayLoader, RoutePickerModal } from '../components'
-import { db } from '../db'
+import { RouteMap, RouteOverlayLoader, RoutePickerModal, Toggle } from '../components'
 import { useGeolocation } from '../hooks/useGeolocation'
+import { useSavedRoutes } from '../hooks/useSavedRoutes'
 import { useScreenWakeLock } from '../hooks/useScreenWakeLock'
 import { useSettings } from '../hooks/useSettings'
 
@@ -10,26 +10,21 @@ export default function DriveMapPage() {
   const geolocation = useGeolocation()
   const { location, permissionState, requestOnce, startWatching, stopWatching } = geolocation
   const { settings, loading, setMapZoomLevel } = useSettings()
-  const [savedRoutes, setSavedRoutes] = useState([])
+  const { routes: savedRoutes, cities: routeCities, filterByCity } = useSavedRoutes()
   const [routeCityFilter, setRouteCityFilter] = useState('')
   const [selectedRouteId, setSelectedRouteId] = useState('')
   const [routePoints, setRoutePoints] = useState([])
   const [routePickerOpen, setRoutePickerOpen] = useState(false)
   const [routeCityComboboxOpen, setRouteCityComboboxOpen] = useState(false)
   const [driveModeEnabled, setDriveModeEnabled] = useState(true)
+  const [keepScreenOn, setKeepScreenOn] = useState(true)
 
   const mapZoomLevel = settings?.mapZoomLevel ?? 14
   const routePathColor = settings?.plannedRoutePathColor ?? '#ebfc01'
-  const { wakeLockSupported } = useScreenWakeLock(true)
-
-  useEffect(() => {
-    async function loadRoutes() {
-      const routes = await db.routes.orderBy('city').toArray()
-      setSavedRoutes(routes)
-    }
-
-    loadRoutes()
-  }, [])
+  // Only hold the wake lock while the user wants the screen kept on (and the
+  // hook releases it whenever the tab is hidden). Previously this was hard-wired
+  // on, pinning the display awake for as long as the page stayed open.
+  const { wakeLockSupported } = useScreenWakeLock(keepScreenOn)
 
   useEffect(() => {
     requestOnce().catch(() => {
@@ -43,18 +38,10 @@ export default function DriveMapPage() {
     }
   }, [requestOnce, startWatching, stopWatching])
 
-  const routeCities = useMemo(() => {
-    const set = new Set(savedRoutes.map((route) => route.city).filter(Boolean))
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'en'))
-  }, [savedRoutes])
-
-  const filteredRoutes = useMemo(() => {
-    if (!routeCityFilter) {
-      return savedRoutes
-    }
-
-    return savedRoutes.filter((route) => route.city === routeCityFilter)
-  }, [savedRoutes, routeCityFilter])
+  const filteredRoutes = useMemo(
+    () => filterByCity(routeCityFilter),
+    [filterByCity, routeCityFilter],
+  )
 
   const selectedRoute = useMemo(
     () => savedRoutes.find((route) => route.id === selectedRouteId) || null,
@@ -119,12 +106,15 @@ export default function DriveMapPage() {
             </p>
           </div>
 
-          {!wakeLockSupported ? (
+          {wakeLockSupported ? (
+            <label className="flex items-center gap-2 text-xs text-slate-300">
+              <Toggle checked={keepScreenOn} onChange={setKeepScreenOn} id="keep-screen-on" />
+              <span>Keep screen awake</span>
+            </label>
+          ) : (
             <p className="text-xs text-amber-300">
               Wake lock is not supported in this browser. The display may dim.
             </p>
-          ) : (
-            <p className="text-xs text-emerald-300">Screen stay-awake is active.</p>
           )}
         </div>
 
