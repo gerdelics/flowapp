@@ -419,15 +419,19 @@ function RouteMap({
     map.setView(latLng, map.getZoom(), { animate: true })
   }
 
-  async function handleToggleFullscreen() {
+  function handleToggleFullscreen() {
     recenterAfterFullscreenToggleRef.current = true
 
-    if (mapRef.current) {
+    const map = mapRef.current
+    if (map) {
       currentZoomRef.current = mapRef.current.getZoom()
     }
 
     if (onRefreshCurrentLocation) {
-      await onRefreshCurrentLocation()
+      Promise.resolve(onRefreshCurrentLocation()).catch(() => {
+        // Non-blocking refresh: fullscreen toggle should stay instant even if
+        // geolocation is slow or unavailable.
+      })
     }
 
     setIsMapMaximized((prev) => !prev)
