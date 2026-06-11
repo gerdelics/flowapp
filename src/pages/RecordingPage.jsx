@@ -8,7 +8,7 @@ import {
   RecordingMap,
   RecordToast,
   RoutePickerModal,
-  SessionControls,
+  SessionBar,
   TrafficLevelPanel,
 } from '../components'
 
@@ -27,22 +27,17 @@ export default function RecordingPage({ isActive = true }) {
   const [stoppingSession, setStoppingSession] = useState(false)
   const [togglingPause, setTogglingPause] = useState(false)
   const [sessionNameDraft, setSessionNameDraft] = useState('')
-  const [renamingSession, setRenamingSession] = useState(false)
 
-  // Route overlay (planned route shown under the recorded path)
   const [routeCityFilter, setRouteCityFilter] = useState('')
   const [selectedOverlayRouteId, setSelectedOverlayRouteId] = useState('')
   const [overlayPoints, setOverlayPoints] = useState([])
   const [routePickerOpen, setRoutePickerOpen] = useState(false)
   const [routeCityComboboxOpen, setRouteCityComboboxOpen] = useState(false)
 
-  const [mobileMapOpen, setMobileMapOpen] = useState(false)
   const [followCurrentLocation, setFollowCurrentLocation] = useState(true)
-  const [isMdUp, setIsMdUp] = useState(() => {
-    if (typeof window === 'undefined') {
-      return true
-    }
-    return window.matchMedia('(min-width: 768px)').matches
+  const [isLandscape, setIsLandscape] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.matchMedia('(orientation: landscape)').matches
   })
 
   const [recordToast, setRecordToast] = useState(null)
@@ -73,9 +68,7 @@ export default function RecordingPage({ isActive = true }) {
   }, [])
 
   const showRecordToast = useCallback((savedRecord, channel) => {
-    if (!savedRecord) {
-      return
-    }
+    if (!savedRecord) return
 
     if (recordToastTimerRef.current) {
       clearTimeout(recordToastTimerRef.current)
@@ -103,22 +96,10 @@ export default function RecordingPage({ isActive = true }) {
     onRecordSaved: showRecordToast,
   })
 
-  const {
-    livePathPoints,
-    nextRecordingIn,
-    manualDue,
-    wakeLockSupported,
-    recordNow,
-    startFreshPath,
-    flushPath,
-    clearPath,
-  } = recording
+  const { livePathPoints, nextRecordingIn, manualDue, wakeLockSupported, recordNow, startFreshPath, flushPath, clearPath } = recording
 
-  // Keep the (always-mounted) page fresh when navigating back to it.
   useEffect(() => {
-    if (!isActive) {
-      return undefined
-    }
+    if (!isActive) return undefined
 
     const refreshTimer = window.setTimeout(() => {
       void reload()
@@ -129,9 +110,6 @@ export default function RecordingPage({ isActive = true }) {
     return () => clearTimeout(refreshTimer)
   }, [isActive, reload, reloadRoutes, refreshActiveSession])
 
-  // Sync the planned-route overlay when the active session identity changes
-  // (clearing it when no session, adopting the session's route when present —
-  // but never wiping a selection the user made just before starting).
   const sessionForOverlayRef = useRef(session.session)
   useEffect(() => {
     sessionForOverlayRef.current = session.session
@@ -150,9 +128,7 @@ export default function RecordingPage({ isActive = true }) {
       ? current.plannedRoutePoints
       : []
 
-    if (plannedRoutePoints.length === 0) {
-      return undefined
-    }
+    if (plannedRoutePoints.length === 0) return undefined
 
     const sync = setTimeout(() => {
       setSelectedOverlayRouteId(current.plannedRouteId || '')
@@ -161,24 +137,18 @@ export default function RecordingPage({ isActive = true }) {
     return () => clearTimeout(sync)
   }, [activeSessionId])
 
-  // Track the responsive breakpoint to avoid mounting two maps at once.
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return undefined
-    }
+    if (typeof window === 'undefined') return undefined
 
-    const media = window.matchMedia('(min-width: 768px)')
-    const onChange = (event) => setIsMdUp(event.matches)
+    const media = window.matchMedia('(orientation: landscape)')
+    const onChange = (e) => setIsLandscape(e.matches)
     media.addEventListener('change', onChange)
-
     return () => media.removeEventListener('change', onChange)
   }, [])
 
   useEffect(() => {
     return () => {
-      if (recordToastTimerRef.current) {
-        clearTimeout(recordToastTimerRef.current)
-      }
+      if (recordToastTimerRef.current) clearTimeout(recordToastTimerRef.current)
     }
   }, [])
 
@@ -188,19 +158,13 @@ export default function RecordingPage({ isActive = true }) {
   )
 
   const selectedOverlayRouteName = useMemo(() => {
-    if (!selectedOverlayRouteId) {
-      return ''
-    }
-
+    if (!selectedOverlayRouteId) return ''
     return savedRoutes.find((route) => route.id === selectedOverlayRouteId)?.name || ''
   }, [savedRoutes, selectedOverlayRouteId])
 
   const handleMapZoomChange = useCallback(
     (nextZoom) => {
-      if (!Number.isFinite(nextZoom) || Math.round(nextZoom) === Math.round(mapZoomLevel)) {
-        return
-      }
-
+      if (!Number.isFinite(nextZoom) || Math.round(nextZoom) === Math.round(mapZoomLevel)) return
       void setMapZoomLevel(Math.round(nextZoom))
     },
     [mapZoomLevel, setMapZoomLevel],
@@ -215,18 +179,14 @@ export default function RecordingPage({ isActive = true }) {
     setSelectedOverlayRouteId(id)
     if (!id) {
       setOverlayPoints([])
-      if (session.session) {
-        session.assignRouteToActiveSession(null)
-      }
+      if (session.session) session.assignRouteToActiveSession(null)
       setRouteCityComboboxOpen(false)
       return
     }
 
     const route = savedRoutes.find((r) => r.id === id)
     setOverlayPoints(route?.points ?? [])
-    if (session.session) {
-      session.assignRouteToActiveSession(id)
-    }
+    if (session.session) session.assignRouteToActiveSession(id)
     setRouteCityComboboxOpen(false)
   }
 
@@ -235,9 +195,7 @@ export default function RecordingPage({ isActive = true }) {
     setOverlayPoints([])
     setRouteCityFilter('')
     setRouteCityComboboxOpen(false)
-    if (session.session) {
-      session.assignRouteToActiveSession(null)
-    }
+    if (session.session) session.assignRouteToActiveSession(null)
   }
 
   function closeRoutePicker() {
@@ -246,9 +204,7 @@ export default function RecordingPage({ isActive = true }) {
   }
 
   async function handleStartSession() {
-    if (startingSession || session.session) {
-      return
-    }
+    if (startingSession || session.session) return
 
     setStartingSession(true)
     try {
@@ -256,10 +212,7 @@ export default function RecordingPage({ isActive = true }) {
       if (selectedOverlayRouteId && createdSession?.id) {
         await session.assignRouteToActiveSession(selectedOverlayRouteId, createdSession.id)
       }
-      if (createdSession?.name) {
-        setSessionNameDraft(createdSession.name)
-      }
-      setMobileMapOpen(true)
+      if (createdSession?.name) setSessionNameDraft(createdSession.name)
       setFollowCurrentLocation(true)
       startFreshPath()
     } finally {
@@ -267,26 +220,8 @@ export default function RecordingPage({ isActive = true }) {
     }
   }
 
-  async function handleRenameSession() {
-    if (!session.session || renamingSession) {
-      return
-    }
-
-    setRenamingSession(true)
-    try {
-      const renamed = await session.renameActiveSession(sessionNameDraft)
-      if (renamed?.name) {
-        setSessionNameDraft(renamed.name)
-      }
-    } finally {
-      setRenamingSession(false)
-    }
-  }
-
   async function handleStopSession() {
-    if (stoppingSession || !session.session) {
-      return
-    }
+    if (stoppingSession || !session.session) return
 
     setStoppingSession(true)
     setAutoEnabled(false)
@@ -294,16 +229,13 @@ export default function RecordingPage({ isActive = true }) {
       await flushPath()
       await session.endSession()
       clearPath()
-      setMobileMapOpen(false)
     } finally {
       setStoppingSession(false)
     }
   }
 
   async function handleTogglePause() {
-    if (!session.session || togglingPause) {
-      return
-    }
+    if (!session.session || togglingPause) return
 
     setTogglingPause(true)
     try {
@@ -319,26 +251,7 @@ export default function RecordingPage({ isActive = true }) {
     }
   }
 
-  const recordButtonLabel = !sessionActive
-    ? 'RECORD NOW'
-    : sessionPaused
-      ? 'PAUSED'
-      : autoEnabled
-        ? `Next Recording in ${nextRecordingIn}s`
-        : manualDue
-          ? 'RECORD NOW'
-          : `Next Recording in ${nextRecordingIn}s`
-
-  const gridColumns = useMemo(() => {
-    if (!activeProviders.length) {
-      return '1fr'
-    }
-    return `1.5fr repeat(${activeProviders.length}, minmax(130px, 1fr))`
-  }, [activeProviders.length])
-
-  if (loading || !settings) {
-    return <p>Loading settings…</p>
-  }
+  const recordDisabled = !sessionActive || autoEnabled || sessionPaused
 
   const mapProps = {
     points: livePathPoints,
@@ -357,105 +270,125 @@ export default function RecordingPage({ isActive = true }) {
     onClearSelectedRoute: handleClearOverlayRoute,
   }
 
+  const sessionBarProps = {
+    sessionActive,
+    sessionPaused,
+    sessionName: session.session ? session.session.name : '',
+    sessionNameDraft,
+    onNameDraftChange: setSessionNameDraft,
+    startingSession,
+    onStart: handleStartSession,
+    stoppingSession,
+    onStop: handleStopSession,
+    togglingPause,
+    onTogglePause: handleTogglePause,
+    autoEnabled,
+    onToggleAuto: () => setAutoEnabled((prev) => !prev),
+    nextRecordingIn,
+    onRecordNow: recordNow,
+    recordDisabled,
+    permissionState: geolocation.permissionState,
+    hasFix: Boolean(geolocation.location),
+  }
+
+  const trafficPanelProps = {
+    observerAssessment: session.observerAssessment,
+    onObserverSelect: session.setObserverAssessment,
+    providers: activeProviders,
+    providerLevels: session.providerLevels,
+    onProviderSelect: session.updateProviderLevel,
+  }
+
+  if (loading || !settings) {
+    return <p>Loading settings…</p>
+  }
+
+  if (routePickerOpen) {
+    return (
+      <RoutePickerModal
+        open={routePickerOpen}
+        title="Select route"
+        subtitle="Choose a city and then a route to load."
+        selectedCity={routeCityFilter}
+        onSelectCity={handleCityFilterChange}
+        cityComboboxOpen={routeCityComboboxOpen}
+        onToggleCityCombobox={() => setRouteCityComboboxOpen((prev) => !prev)}
+        cities={routeCities}
+        routes={filteredRoutes}
+        selectedRouteId={selectedOverlayRouteId}
+        onDone={handleOverlayRouteChange}
+        onClose={closeRoutePicker}
+      />
+    )
+  }
+
   return (
     <>
       <RecordToast record={recordToast} onDismiss={dismissRecordToast} />
 
-      {!isMdUp ? (
-        <section className="mb-4 md:hidden">
-          <details
-            className="group overflow-hidden rounded-xl border border-slate-700 bg-slate-900"
-            open={mobileMapOpen}
-            onToggle={(event) => setMobileMapOpen(event.currentTarget.open)}
+      {isLandscape ? (
+        <div className="flex gap-3" style={{ height: 'calc(100dvh - 9.5rem)' }}>
+          <div className="w-[42%] shrink-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
+            <RecordingMap className="h-full w-full" {...mapProps} />
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col gap-2">
+            <SessionBar showPrimaryAction={false} {...sessionBarProps} />
+            <TrafficLevelPanel className="flex min-h-0 flex-1 flex-col" {...trafficPanelProps} />
+            <button
+              type="button"
+              onClick={!sessionActive ? handleStartSession : recordNow}
+              disabled={!sessionActive ? startingSession : recordDisabled}
+              className={`shrink-0 w-full rounded-xl py-3 text-base font-bold transition disabled:opacity-50 ${
+                !sessionActive
+                  ? 'bg-emerald-600 text-white'
+                  : sessionPaused
+                    ? 'cursor-default bg-slate-700 text-slate-400'
+                    : autoEnabled
+                      ? 'cursor-default bg-slate-700 text-slate-300'
+                      : 'bg-cyan-500 text-slate-950'
+              }`}
+            >
+              {!sessionActive
+                ? startingSession ? 'Starting…' : 'START SESSION'
+                : sessionPaused
+                  ? 'SESSION PAUSED'
+                  : nextRecordingIn > 0
+                    ? `⏱  Next recording in ${nextRecordingIn}s`
+                    : 'RECORD NOW'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2" style={{ height: 'calc(100dvh - 9.5rem)' }}>
+          <SessionBar showPrimaryAction={false} {...sessionBarProps} />
+          <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
+            <RecordingMap className="h-full w-full" {...mapProps} />
+          </div>
+          <TrafficLevelPanel className="shrink-0" {...trafficPanelProps} />
+          <button
+            type="button"
+            onClick={!sessionActive ? handleStartSession : recordNow}
+            disabled={!sessionActive ? startingSession : recordDisabled}
+            className={`shrink-0 w-full rounded-xl py-4 text-base font-bold transition disabled:opacity-50 ${
+              !sessionActive
+                ? 'bg-emerald-600 text-white'
+                : sessionPaused
+                  ? 'cursor-default bg-slate-700 text-slate-400'
+                  : autoEnabled
+                    ? 'cursor-default bg-slate-700 text-slate-300'
+                    : 'bg-cyan-500 text-slate-950'
+            }`}
           >
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">
-                  Recording map
-                </p>
-                <p className="truncate text-sm font-bold text-slate-100">
-                  {session.session ? session.session.name : 'No running session'}
-                </p>
-              </div>
-              <span className="flex items-center gap-1 text-xs font-semibold text-slate-400">
-                <span>{mobileMapOpen ? 'Hide' : 'Show'}</span>
-                <span className="transition group-open:rotate-180" aria-hidden="true">
-                  ▾
-                </span>
-              </span>
-            </summary>
-
-            <div className="border-t border-slate-700 p-3">
-              <RecordingMap className="h-[42vh] min-h-[250px] w-full rounded-lg" {...mapProps} />
-            </div>
-          </details>
-        </section>
-      ) : null}
-
-      {routePickerOpen ? (
-        <RoutePickerModal
-          open={routePickerOpen}
-          title="Select route"
-          subtitle="Choose a city and then a route to load."
-          selectedCity={routeCityFilter}
-          onSelectCity={handleCityFilterChange}
-          cityComboboxOpen={routeCityComboboxOpen}
-          onToggleCityCombobox={() => setRouteCityComboboxOpen((prev) => !prev)}
-          cities={routeCities}
-          routes={filteredRoutes}
-          selectedRouteId={selectedOverlayRouteId}
-          onDone={handleOverlayRouteChange}
-          onClose={closeRoutePicker}
-        />
-      ) : null}
-
-      <div className="grid min-h-[calc(100dvh-9.5rem)] gap-3 md:h-[calc(100dvh-9.5rem)] md:min-h-[620px] md:grid-rows-[2fr_1fr]">
-        <section className="grid min-h-0 gap-3 md:grid-cols-[2fr_1fr]">
-          {isMdUp ? (
-            <div className="min-h-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
-              <RecordingMap
-                className="h-[40dvh] min-h-[260px] w-full sm:h-[42dvh] md:h-full md:min-h-[320px]"
-                {...mapProps}
-              />
-            </div>
-          ) : null}
-
-          <SessionControls
-            sessionName={session.session ? session.session.name : 'No running session'}
-            sessionActive={sessionActive}
-            sessionPaused={sessionPaused}
-            sessionNameDraft={sessionNameDraft}
-            onNameDraftChange={setSessionNameDraft}
-            onRename={handleRenameSession}
-            renamingSession={renamingSession}
-            startingSession={startingSession}
-            onStart={handleStartSession}
-            stoppingSession={stoppingSession}
-            onStop={handleStopSession}
-            togglingPause={togglingPause}
-            onTogglePause={handleTogglePause}
-            autoEnabled={autoEnabled}
-            onToggleAuto={() => setAutoEnabled((prev) => !prev)}
-            recordButtonLabel={recordButtonLabel}
-            onRecordNow={recordNow}
-            recordDisabled={!sessionActive || autoEnabled || sessionPaused}
-            lastRecordedAt={session.lastRecordedAt}
-            permissionState={geolocation.permissionState}
-            hasFix={Boolean(geolocation.location)}
-            wakeLockEnabled={wakeLockEnabled}
-            wakeLockSupported={wakeLockSupported}
-          />
-        </section>
-
-        <TrafficLevelPanel
-          observerAssessment={session.observerAssessment}
-          onObserverSelect={session.setObserverAssessment}
-          providers={activeProviders}
-          providerLevels={session.providerLevels}
-          onProviderSelect={session.updateProviderLevel}
-          gridColumns={gridColumns}
-        />
-      </div>
+            {!sessionActive
+              ? startingSession ? 'Starting…' : 'START SESSION'
+              : sessionPaused
+                ? 'SESSION PAUSED'
+                : nextRecordingIn > 0
+                  ? `⏱  Next recording in ${nextRecordingIn}s`
+                  : 'RECORD NOW'}
+          </button>
+        </div>
+      )}
     </>
   )
 }
