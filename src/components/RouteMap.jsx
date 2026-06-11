@@ -453,7 +453,51 @@ function RouteMap({
       <div key={mapMountKey} ref={containerRef} className={mapClassName} />
 
       {showMapControls ? (
-        <div className="absolute right-3 top-3 z-[1000] flex flex-row gap-2">
+        <div className="absolute right-3 top-3 z-[1000] flex flex-col items-end gap-2">
+          {showRouteControl ? (
+            <div className="flex flex-row items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={onOpenRoutePicker}
+                className={`inline-flex h-10 items-center justify-center gap-2 rounded-full border px-3 shadow-lg backdrop-blur transition ${
+                  hasSelectedRoute
+                    ? 'border-orange-300 bg-slate-950/95 text-orange-200 hover:border-orange-200 hover:bg-slate-900/95 hover:text-orange-100'
+                    : 'border-slate-600 bg-slate-950/85 text-slate-300 hover:border-cyan-400 hover:text-cyan-300'
+                }`}
+                title={hasSelectedRoute ? 'Replace loaded route' : 'Load route'}
+                aria-label={hasSelectedRoute ? 'Replace loaded route' : 'Load route'}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                  <path d="M3 7h5l2 2h11" />
+                  <path d="M3 17h5l2-2h11" />
+                  <path d="M16 5l2 2-2 2" />
+                  <path d="M16 13l2 2-2 2" />
+                </svg>
+                {hasSelectedRoute ? (
+                  <span className="max-w-[170px] truncate text-xs font-semibold">{selectedRouteName}</span>
+                ) : null}
+              </button>
+
+              {hasSelectedRoute ? (
+                <button
+                  type="button"
+                  onClick={onClearSelectedRoute}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-600 bg-slate-950/85 text-slate-400 shadow-lg backdrop-blur transition hover:border-red-400 hover:text-red-300"
+                  title="Reset selected route"
+                  aria-label="Reset selected route"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                    <path d="M3 6h18" />
+                    <path d="M8 6V4h8v2" />
+                    <path d="M19 6l-1 13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                    <path d="M10 11v6" />
+                    <path d="M14 11v6" />
+                  </svg>
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
           {showFullscreenControl ? (
             <button
               type="button"
@@ -484,48 +528,6 @@ function RouteMap({
             </button>
           ) : null}
 
-          {showRouteControl ? (
-            <button
-              type="button"
-              onClick={onOpenRoutePicker}
-              className={`inline-flex h-10 items-center justify-center gap-2 rounded-full border px-3 shadow-lg backdrop-blur transition ${
-                hasSelectedRoute
-                  ? 'border-orange-300 bg-slate-950/95 text-orange-200 hover:border-orange-200 hover:bg-slate-900/95 hover:text-orange-100'
-                  : 'border-slate-600 bg-slate-950/85 text-slate-300 hover:border-cyan-400 hover:text-cyan-300'
-              }`}
-              title={hasSelectedRoute ? 'Replace loaded route' : 'Load route'}
-              aria-label={hasSelectedRoute ? 'Replace loaded route' : 'Load route'}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                <path d="M3 7h5l2 2h11" />
-                <path d="M3 17h5l2-2h11" />
-                <path d="M16 5l2 2-2 2" />
-                <path d="M16 13l2 2-2 2" />
-              </svg>
-              {hasSelectedRoute ? (
-                <span className="max-w-[170px] truncate text-xs font-semibold">{selectedRouteName}</span>
-              ) : null}
-            </button>
-          ) : null}
-
-          {showRouteControl && hasSelectedRoute ? (
-            <button
-              type="button"
-              onClick={onClearSelectedRoute}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-600 bg-slate-950/85 text-slate-400 shadow-lg backdrop-blur transition hover:border-red-400 hover:text-red-300"
-              title="Reset selected route"
-              aria-label="Reset selected route"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                <path d="M3 6h18" />
-                <path d="M8 6V4h8v2" />
-                <path d="M19 6l-1 13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                <path d="M10 11v6" />
-                <path d="M14 11v6" />
-              </svg>
-            </button>
-          ) : null}
-
           {showResetControl ? (
             <button
               type="button"
@@ -549,16 +551,19 @@ function RouteMap({
             <button
               type="button"
               onClick={handleToggleDriveMode}
-              className={`inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-lg backdrop-blur transition ${
+              className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-lg backdrop-blur transition-all duration-200 ${
                 isDriveModeEnabled
-                  ? 'border-cyan-300 bg-slate-950/95 text-cyan-200 hover:border-cyan-200 hover:bg-slate-900/95 hover:text-cyan-100'
+                  ? 'border-cyan-400 bg-cyan-500 text-white shadow-cyan-500/50 hover:bg-cyan-400 hover:shadow-cyan-400/60'
                   : 'border-slate-600 bg-slate-950/85 text-slate-400 hover:border-slate-400 hover:text-slate-200'
               }`}
               title={isDriveModeEnabled ? 'Auto-follow on – tap to disable' : 'Auto-follow off – tap to enable'}
               aria-label="Toggle drive mode"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                <polyline points="18 15 12 9 6 15" />
+              {isDriveModeEnabled ? (
+                <span className="absolute inset-0 rounded-full animate-ping bg-cyan-400 opacity-30" />
+              ) : null}
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+                <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z" />
               </svg>
             </button>
           ) : null}
