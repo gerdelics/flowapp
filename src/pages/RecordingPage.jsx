@@ -42,7 +42,7 @@ export default function RecordingPage({ isActive = true }) {
     if (typeof window === 'undefined') {
       return true
     }
-    return window.matchMedia('(min-width: 640px)').matches
+    return window.matchMedia('(min-width: 768px)').matches
   })
 
   const [recordToast, setRecordToast] = useState(null)
@@ -167,7 +167,7 @@ export default function RecordingPage({ isActive = true }) {
       return undefined
     }
 
-    const media = window.matchMedia('(min-width: 640px)')
+    const media = window.matchMedia('(min-width: 768px)')
     const onChange = (event) => setIsMdUp(event.matches)
     media.addEventListener('change', onChange)
 
