@@ -17,6 +17,7 @@ function RecordingMap({
   defaultZoom,
   onZoomLevelChange,
   fitRouteKey,
+  onRefreshCurrentLocation,
 }) {
   return (
     <RouteMap
@@ -33,6 +34,8 @@ function RecordingMap({
       onZoomLevelChange={onZoomLevelChange}
       fitRoute={false}
       fitRouteKey={fitRouteKey}
+      showFullscreenControl
+      onRefreshCurrentLocation={onRefreshCurrentLocation}
     />
   )
 }

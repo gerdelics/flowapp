@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import L from 'leaflet'
 
 const DEFAULT_CENTER = [47.4979, 19.0402]
@@ -35,6 +35,8 @@ function RouteMap({
   showMapControls = true,
   showResetControl = true,
   showDriveModeControl = true,
+  showFullscreenControl = false,
+  onRefreshCurrentLocation,
   resetZoomLevel = 16,
   onZoomLevelChange,
   defaultZoom = 14,
@@ -53,6 +55,9 @@ function RouteMap({
   const driveModeRef = useRef(false)
   const onZoomLevelChangeRef = useRef(onZoomLevelChange)
   const initialZoomRef = useRef(defaultZoom)
+  const recenterAfterFullscreenToggleRef = useRef(false)
+  const [isMapMaximized, setIsMapMaximized] = useState(false)
+  const [mapMountKey, setMapMountKey] = useState(0)
 
   const isDriveModeEnabled =
     typeof driveModeEnabled === 'boolean' ? driveModeEnabled : Boolean(followCurrent || isFollowing)
@@ -95,6 +100,11 @@ function RouteMap({
 
     mapRef.current = map
 
+    if (recenterAfterFullscreenToggleRef.current && currentLocationRef.current) {
+      map.setView(currentLocationRef.current, map.getZoom(), { animate: false })
+      recenterAfterFullscreenToggleRef.current = false
+    }
+
     map.on('zoomend', () => {
       onZoomLevelChangeRef.current?.(Math.round(map.getZoom()))
     })
@@ -135,7 +145,41 @@ function RouteMap({
       prevPathColorRef.current = null
       routeFittedRef.current = false
     }
-  }, [])
+  }, [mapMountKey])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) {
+      return undefined
+    }
+
+    const invalidate = () => map.invalidateSize({ pan: false })
+    requestAnimationFrame(invalidate)
+    const timeout = setTimeout(invalidate, 60)
+
+    return () => clearTimeout(timeout)
+  }, [isMapMaximized])
+
+  useEffect(() => {
+    if (!isMapMaximized || typeof document === 'undefined') {
+      return undefined
+    }
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setIsMapMaximized(false)
+      }
+    }
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', onKeyDown)
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [isMapMaximized])
 
   useEffect(() => {
     const map = mapRef.current
@@ -283,6 +327,11 @@ function RouteMap({
     const latLng = [currentLocation.lat, currentLocation.lon]
     currentLocationRef.current = latLng
 
+    if (recenterAfterFullscreenToggleRef.current) {
+      map.setView(latLng, map.getZoom(), { animate: false })
+      recenterAfterFullscreenToggleRef.current = false
+    }
+
     if (showCurrentMarker) {
       if (!currentMarkerRef.current) {
         currentMarkerRef.current = L.circleMarker(latLng, {
@@ -365,12 +414,57 @@ function RouteMap({
     map.setView(latLng, map.getZoom(), { animate: true })
   }
 
+  async function handleToggleFullscreen() {
+    recenterAfterFullscreenToggleRef.current = true
+
+    if (onRefreshCurrentLocation) {
+      await onRefreshCurrentLocation()
+    }
+
+    setIsMapMaximized((prev) => !prev)
+    setMapMountKey((prev) => prev + 1)
+  }
+
+  const wrapperClassName = isMapMaximized
+    ? 'fixed inset-0 z-[1400] h-dvh w-screen isolate bg-slate-950'
+    : 'relative h-full w-full isolate bg-slate-950'
+
+  const mapClassName = isMapMaximized
+    ? 'relative z-0 h-full w-full'
+    : `relative z-0 ${className || 'h-full w-full rounded-md'}`
+
   return (
-    <div className="relative h-full w-full">
-      <div ref={containerRef} className={className || 'h-full w-full rounded-md'} />
+    <div className={wrapperClassName}>
+      <div key={mapMountKey} ref={containerRef} className={mapClassName} />
 
       {showMapControls ? (
         <div className="absolute right-3 top-3 z-[1000] flex flex-row gap-2">
+          {showFullscreenControl ? (
+            <button
+              type="button"
+              onClick={handleToggleFullscreen}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-600 bg-slate-950/85 text-slate-300 shadow-lg backdrop-blur transition hover:border-cyan-400 hover:text-cyan-300"
+              title={isMapMaximized ? 'Restore map size' : 'Expand map'}
+              aria-label={isMapMaximized ? 'Restore map size' : 'Expand map'}
+            >
+              {isMapMaximized ? (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                  <polyline points="9 3 9 9 3 9" />
+                  <polyline points="15 3 15 9 21 9" />
+                  <polyline points="9 21 9 15 3 15" />
+                  <polyline points="15 21 15 15 21 15" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                  <polyline points="15 3 21 3 21 9" />
+                  <polyline points="9 21 3 21 3 15" />
+                  <polyline points="21 15 21 21 15 21" />
+                  <polyline points="3 9 3 3 9 3" />
+                </svg>
+              )}
+            </button>
+          ) : null}
+
           {showResetControl ? (
             <button
               type="button"

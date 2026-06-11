@@ -5,7 +5,6 @@ import RecordingPage from '../../pages/RecordingPage'
 
 const links = [
   { to: '/', label: 'Recording' },
-  { to: '/drive-map', label: 'Drive Map' },
   { to: '/sessions', label: 'Sessions' },
   { to: '/routes', label: 'Routes' },
   { to: '/settings', label: 'Settings' },

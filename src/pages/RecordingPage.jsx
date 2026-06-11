@@ -343,6 +343,7 @@ export default function RecordingPage({ isActive = true }) {
     defaultZoom: mapZoomLevel,
     onZoomLevelChange: handleMapZoomChange,
     fitRouteKey: activeSessionId,
+    onRefreshCurrentLocation: geolocation.requestOnce,
   }
 
   return (
