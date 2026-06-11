@@ -23,7 +23,7 @@ export default function SessionBar({
   const gpsNoFix = !hasFix && !gpsDenied
 
   return (
-    <div className="shrink-0 border-b border-slate-700 bg-slate-900">
+    <div className="shrink-0">
       {gpsDenied ? (
         <div className="flex items-center gap-2 bg-red-950/70 px-3 py-1.5">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0 text-red-400" aria-hidden="true">
@@ -38,7 +38,7 @@ export default function SessionBar({
         </div>
       ) : null}
 
-      <div className="flex items-center gap-2 px-3 py-2">
+      <div className="flex items-center gap-2 px-3 py-1.5">
         <span className={`h-2 w-2 shrink-0 rounded-full ${
           !sessionActive ? 'bg-slate-500' :
           sessionPaused ? 'bg-amber-400' :
@@ -52,7 +52,7 @@ export default function SessionBar({
               value={sessionNameDraft}
               onChange={(e) => onNameDraftChange(e.target.value)}
               placeholder="Session name"
-              className="min-h-10 flex-1 rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 transition focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/30"
+              className="min-h-8 flex-1 rounded-lg border border-slate-600 bg-slate-800 px-3 py-1 text-sm text-slate-100 placeholder:text-slate-500 transition focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/30"
             />
             {showPrimaryAction ? (
               <button

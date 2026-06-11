@@ -44,7 +44,7 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
+    <div className="flex min-h-dvh flex-col bg-slate-950 text-slate-100">
       <header className="border-b border-slate-800 bg-slate-900/90">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-4">
           <div>
@@ -92,7 +92,11 @@ export default function AppLayout() {
         ) : null}
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
+      <main
+        className={`mx-auto w-full max-w-6xl flex-1 px-4 ${
+          isRecordingRoute ? 'py-2' : 'py-6'
+        }`}
+      >
         <div className={isRecordingRoute ? '' : 'hidden'}>
           <RecordingPage isActive={isRecordingRoute} />
         </div>
