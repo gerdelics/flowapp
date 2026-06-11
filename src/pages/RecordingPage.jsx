@@ -444,10 +444,6 @@ export default function RecordingPage({ isActive = true }) {
             hasFix={Boolean(geolocation.location)}
             wakeLockEnabled={wakeLockEnabled}
             wakeLockSupported={wakeLockSupported}
-            savedRoutes={savedRoutes}
-            selectedOverlayRouteId={selectedOverlayRouteId}
-            onOpenPicker={() => setRoutePickerOpen(true)}
-            onClearOverlayRoute={handleClearOverlayRoute}
           />
         </section>
 
