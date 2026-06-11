@@ -461,7 +461,7 @@ export default function RecordingPage({ isActive = true }) {
       ) : null}
 
       {isLandscape ? (
-        <div className="flex gap-3" style={{ height: 'calc(100dvh - 9.5rem)' }}>
+        <div className="flex gap-3" style={{ height: 'calc(100dvh - 7rem)' }}>
           <div className="w-[42%] shrink-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
             <RecordingMap className="h-full w-full" {...mapProps} />
           </div>
@@ -499,7 +499,7 @@ export default function RecordingPage({ isActive = true }) {
           </div>
         </div>
       ) : (
-        <div className="flex flex-col gap-2" style={{ height: 'calc(100dvh - 9.5rem)' }}>
+        <div className="flex flex-col gap-1" style={{ height: 'calc(100dvh - 7rem)' }}>
           <SystemStatusBanner
             online={online}
             gpsStale={gpsHealth.stale}
@@ -515,7 +515,7 @@ export default function RecordingPage({ isActive = true }) {
             type="button"
             onClick={!sessionActive ? requestStart : recordNow}
             disabled={!sessionActive ? startingSession : recordDisabled}
-            className={`shrink-0 w-full rounded-xl py-4 text-base font-bold transition disabled:opacity-50 ${
+            className={`shrink-0 w-full rounded-xl py-3 text-base font-bold transition disabled:opacity-50 ${
               !sessionActive
                 ? 'bg-emerald-600 text-white'
                 : sessionPaused

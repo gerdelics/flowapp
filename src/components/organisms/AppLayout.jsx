@@ -44,11 +44,11 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
+    <div className="flex min-h-dvh flex-col bg-slate-950 text-slate-100">
       <header className="border-b border-slate-800 bg-slate-900/90">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-4">
           <div>
-            <h1 className="text-lg font-semibold">Traffic Monitor PWA</h1>
+            <h1 className="text-lg font-semibold">Traffic Monitor PWA  --- DEV --- </h1>
             <p className="text-[10px] font-mono text-slate-500 leading-none mt-0.5">
               {__GIT_COMMIT__} · {new Date(__BUILD_TIME__).toLocaleString('en-GB', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
             </p>
@@ -92,7 +92,11 @@ export default function AppLayout() {
         ) : null}
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
+      <main
+        className={`mx-auto w-full max-w-6xl flex-1 px-4 ${
+          isRecordingRoute ? 'py-2' : 'py-6'
+        }`}
+      >
         <div className={isRecordingRoute ? '' : 'hidden'}>
           <RecordingPage isActive={isRecordingRoute} />
         </div>
