@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useAutoRecord } from './useAutoRecord'
 import { useScreenWakeLock } from './useScreenWakeLock'
 import { playNotificationBeep } from '../utils/audio'
 import { touchSessionHeartbeat } from '../db'
@@ -70,17 +69,42 @@ export function useRecordingSession({
   const warningSoundEnabled = settings?.warningSoundEnabled ?? false
   const warningLeadSec = settings?.recordingWarningLeadSec ?? 5
 
+  // A single shared countdown drives both manual and auto recording. Keeping one
+  // source of truth means the value carries over when the user flips the auto
+  // toggle mid-interval (switching at t-10 keeps ticking from 10 instead of
+  // resetting to the full interval), in both directions.
+  const secondsLeftRef = useRef(0)
+  const setCountdown = useCallback((value) => {
+    secondsLeftRef.current = value
+    setManualSecondsLeft(value)
+  }, [])
+
   // Refs mirror fast-changing values so the long-lived interval/effects below
   // can read them without listing them as dependencies (which would recreate
   // the timers every tick).
   const sessionPausedRef = useRef(sessionPaused)
   const sessionRef = useRef(session.session)
+  const autoEnabledRef = useRef(autoEnabled)
+  const intervalSecRef = useRef(intervalSec)
+  const fireAutoRecordRef = useRef(null)
   useEffect(() => {
     sessionPausedRef.current = sessionPaused
   }, [sessionPaused])
   useEffect(() => {
     sessionRef.current = session.session
   })
+  useEffect(() => {
+    autoEnabledRef.current = autoEnabled
+  }, [autoEnabled])
+  useEffect(() => {
+    intervalSecRef.current = intervalSec
+  }, [intervalSec])
+  useEffect(() => {
+    fireAutoRecordRef.current = async () => {
+      const saved = await session.recordNow(locationRef.current)
+      onRecordSaved?.(saved, 'auto')
+    }
+  }, [session, locationRef, onRecordSaved])
 
   const saveActiveSessionPath = session.saveActiveSessionPath
   const refreshActiveSession = session.refreshActiveSession
@@ -187,45 +211,43 @@ export function useRecordingSession({
     return () => clearInterval(beat)
   }, [activeSessionId])
 
-  // Initialise the manual countdown when a session starts / interval changes.
+  // Initialise the shared countdown when a session starts / interval changes.
   useEffect(() => {
     const target = activeSessionId ? intervalSec : 0
-    const timer = setTimeout(() => setManualSecondsLeft(target), 0)
+    const timer = setTimeout(() => setCountdown(target), 0)
     return () => clearTimeout(timer)
-  }, [activeSessionId, intervalSec])
+  }, [activeSessionId, intervalSec, setCountdown])
 
-  // Manual countdown tick — one stable interval; reads pause state from a ref.
+  // Shared countdown tick — one stable interval; reads pause/mode from refs.
+  // In auto mode reaching zero fires a recording and rolls over to the next
+  // interval; in manual mode it parks at zero (overdue) until the user records.
   useEffect(() => {
     if (!activeSessionId) {
       return undefined
     }
 
     const timer = setInterval(() => {
-      setManualSecondsLeft((prev) => {
-        if (sessionPausedRef.current) {
-          return prev
+      if (sessionPausedRef.current) {
+        return
+      }
+
+      const prev = secondsLeftRef.current
+      if (prev <= 1) {
+        if (autoEnabledRef.current) {
+          setCountdown(intervalSecRef.current)
+          void fireAutoRecordRef.current?.()
+        } else {
+          setCountdown(0)
         }
-        if (prev <= 1) {
-          return 0
-        }
-        return prev - 1
-      })
+      } else {
+        setCountdown(prev - 1)
+      }
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [activeSessionId])
+  }, [activeSessionId, setCountdown])
 
-  const autoRecord = useAutoRecord({
-    enabled: autoEnabled && sessionActive && !sessionPaused,
-    intervalSec,
-    onTick: async () => {
-      const saved = await session.recordNow(locationRef.current)
-      onRecordSaved?.(saved, 'auto')
-      setManualSecondsLeft(intervalSec)
-    },
-  })
-
-  const nextRecordingIn = autoEnabled ? autoRecord.secondsLeft : manualSecondsLeft
+  const nextRecordingIn = manualSecondsLeft
   const manualDue = sessionActive && !sessionPaused && !autoEnabled && manualSecondsLeft <= 0
 
   // Warning beep/vibration as the auto-record countdown nears zero.
@@ -333,9 +355,9 @@ export function useRecordingSession({
     pathBufferRef.current = []
     setLivePathPoints([])
     seedPathWithCurrentLocation()
-    setManualSecondsLeft(intervalSec)
+    setCountdown(intervalSec)
     manualExpiryBeepedRef.current = false
-  }, [intervalSec, seedPathWithCurrentLocation])
+  }, [intervalSec, seedPathWithCurrentLocation, setCountdown])
 
   const flushPath = useCallback(async () => {
     await saveActiveSessionPath(pathBufferRef.current)
@@ -344,16 +366,16 @@ export function useRecordingSession({
   const clearPath = useCallback(() => {
     pathBufferRef.current = []
     setLivePathPoints([])
-    setManualSecondsLeft(0)
+    setCountdown(0)
     manualExpiryBeepedRef.current = false
-  }, [])
+  }, [setCountdown])
 
   const recordNow = useCallback(async () => {
     if (!sessionActive || autoEnabled || sessionPaused) {
       return null
     }
 
-    setManualSecondsLeft(intervalSec)
+    setCountdown(intervalSec)
     manualExpiryBeepedRef.current = false
     const saved = await session.recordNow(locationRef.current)
     onRecordSaved?.(saved, 'manual')
@@ -367,6 +389,7 @@ export function useRecordingSession({
     session,
     sessionActive,
     sessionPaused,
+    setCountdown,
   ])
 
   return {
