@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   addEntry,
+  deleteSession,
   getActiveSession,
   getEntriesBySessionId,
   listSessionsWithCounts,
@@ -21,6 +22,8 @@ export function useSession(activeProviders) {
   const [observerAssessment, setObserverAssessment] = useState('medium')
   const [lastRecordedAt, setLastRecordedAt] = useState(null)
   const [sessions, setSessions] = useState([])
+  const [recoveryPending, setRecoveryPending] = useState(false)
+  const [recoveredMeta, setRecoveredMeta] = useState(null)
   const refreshActiveSession = useCallback(async () => {
     const active = await getActiveSession()
     setSession(active)
@@ -41,6 +44,26 @@ export function useSession(activeProviders) {
       ])
 
       if (!mounted) {
+        return
+      }
+
+      // An un-ended session present at mount survived a reload/crash (a normal
+      // in-app session is created via beginSession, which never remounts this
+      // hook). Pause it so the sampler records no bad points and prompt the user
+      // to resume, finish, or discard.
+      if (active) {
+        const paused = (await pauseSession(active.id)) || active
+        if (!mounted) {
+          return
+        }
+        setSession(paused)
+        setSessions(sessionList)
+        setRecoveredMeta({
+          name: active.name,
+          lastHeartbeatAt: active.lastHeartbeatAt || null,
+          pointCount: Array.isArray(active.path) ? active.path.length : 0,
+        })
+        setRecoveryPending(true)
         return
       }
 
@@ -193,6 +216,28 @@ export function useSession(activeProviders) {
     return getEntriesBySessionId(session.id)
   }, [session])
 
+  const confirmRecoveryResume = useCallback(async () => {
+    await resumeActiveSession()
+    setRecoveryPending(false)
+    setRecoveredMeta(null)
+  }, [resumeActiveSession])
+
+  const confirmRecoveryFinalize = useCallback(async () => {
+    await endSession()
+    setRecoveryPending(false)
+    setRecoveredMeta(null)
+  }, [endSession])
+
+  const confirmRecoveryDiscard = useCallback(async () => {
+    if (session) {
+      await deleteSession(session.id)
+      setSession(null)
+      await refreshSessions()
+    }
+    setRecoveryPending(false)
+    setRecoveredMeta(null)
+  }, [refreshSessions, session])
+
   return {
     session,
     sessions,
@@ -212,5 +257,10 @@ export function useSession(activeProviders) {
     getCurrentSessionEntries,
     refreshSessions,
     refreshActiveSession,
+    recoveryPending,
+    recoveredMeta,
+    confirmRecoveryResume,
+    confirmRecoveryFinalize,
+    confirmRecoveryDiscard,
   }
 }

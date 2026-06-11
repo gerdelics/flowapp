@@ -275,11 +275,24 @@ export async function startSession(name) {
     startTime: now,
     endTime: null,
     pausedAt: null,
+    lastHeartbeatAt: now,
     notes: '',
     path: [],
   }
   await db.sessions.put(session)
   return session
+}
+
+// Liveness ping written on a short interval while a session is active. It lets
+// crash recovery tell how long ago the recording was last alive. The field is
+// not indexed, so this is a cheap partial update with no schema migration.
+export async function touchSessionHeartbeat(sessionId) {
+  const session = await db.sessions.get(sessionId)
+  if (!session || session.endTime) {
+    return null
+  }
+  await db.sessions.update(sessionId, { lastHeartbeatAt: new Date().toISOString() })
+  return sessionId
 }
 
 export async function setSessionPath(sessionId, path) {

@@ -1,16 +1,49 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useBatteryStatus } from '../hooks/useBatteryStatus'
 import { useGeolocation } from '../hooks/useGeolocation'
+import { useGpsHealth } from '../hooks/useGpsHealth'
+import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import { useRecordingSession } from '../hooks/useRecordingSession'
 import { useSavedRoutes } from '../hooks/useSavedRoutes'
 import { useSession } from '../hooks/useSession'
 import { useSettings } from '../hooks/useSettings'
 import {
+  ConfirmDialog,
+  CrashRecoveryModal,
   RecordingMap,
   RecordToast,
   RoutePickerModal,
   SessionBar,
+  SystemStatusBanner,
   TrafficLevelPanel,
 } from '../components'
+
+const CONFIRM_CONFIG = {
+  start: {
+    title: 'Start recording?',
+    message: 'This begins a new recording session and starts collecting GPS points.',
+    confirmLabel: 'Start',
+    tone: 'emerald',
+  },
+  pause: {
+    title: 'Pause recording?',
+    message: 'GPS sampling stops until you resume. Everything recorded so far is kept.',
+    confirmLabel: 'Pause',
+    tone: 'amber',
+  },
+  resume: {
+    title: 'Resume recording?',
+    message: 'GPS sampling restarts and points are collected again.',
+    confirmLabel: 'Resume',
+    tone: 'emerald',
+  },
+  stop: {
+    title: 'Stop recording?',
+    message: 'This ends the session and saves it. You can review it later under Sessions.',
+    confirmLabel: 'Stop',
+    tone: 'red',
+  },
+}
 
 export default function RecordingPage({ isActive = true }) {
   const { settings, loading, reload, setMapZoomLevel } = useSettings()
@@ -27,6 +60,9 @@ export default function RecordingPage({ isActive = true }) {
   const [stoppingSession, setStoppingSession] = useState(false)
   const [togglingPause, setTogglingPause] = useState(false)
   const [sessionNameDraft, setSessionNameDraft] = useState('')
+  const [pendingConfirm, setPendingConfirm] = useState(null)
+  const [confirmBusy, setConfirmBusy] = useState(false)
+  const [recoveryBusy, setRecoveryBusy] = useState(false)
 
   const [routeCityFilter, setRouteCityFilter] = useState('')
   const [selectedOverlayRouteId, setSelectedOverlayRouteId] = useState('')
@@ -58,6 +94,10 @@ export default function RecordingPage({ isActive = true }) {
   const activeSessionId = session.session?.id
   const wakeLockEnabled = sessionActive && !sessionPaused
   const refreshActiveSession = session.refreshActiveSession
+
+  const online = useOnlineStatus()
+  const battery = useBatteryStatus()
+  const gpsHealth = useGpsHealth(geolocation, sessionActive && !sessionPaused)
 
   const dismissRecordToast = useCallback(() => {
     if (recordToastTimerRef.current) {
@@ -251,6 +291,76 @@ export default function RecordingPage({ isActive = true }) {
     }
   }
 
+  // Start/Pause/Resume/Stop are gated behind a mandatory confirmation. The
+  // request* handlers only open the dialog; the real mutation runs on confirm.
+  function requestStart() {
+    if (session.session) return
+    setPendingConfirm({ kind: 'start' })
+  }
+
+  function requestStop() {
+    if (!session.session) return
+    setPendingConfirm({ kind: 'stop' })
+  }
+
+  function requestTogglePause() {
+    if (!session.session) return
+    setPendingConfirm({ kind: session.session.pausedAt ? 'resume' : 'pause' })
+  }
+
+  function closeConfirm() {
+    if (confirmBusy) return
+    setPendingConfirm(null)
+  }
+
+  async function handleConfirm() {
+    if (!pendingConfirm) return
+
+    setConfirmBusy(true)
+    try {
+      if (pendingConfirm.kind === 'start') {
+        await handleStartSession()
+      } else if (pendingConfirm.kind === 'stop') {
+        await handleStopSession()
+      } else {
+        await handleTogglePause()
+      }
+    } finally {
+      setConfirmBusy(false)
+      setPendingConfirm(null)
+    }
+  }
+
+  async function handleRecoveryResume() {
+    setRecoveryBusy(true)
+    try {
+      await session.confirmRecoveryResume()
+      setFollowCurrentLocation(true)
+    } finally {
+      setRecoveryBusy(false)
+    }
+  }
+
+  async function handleRecoveryFinalize() {
+    setRecoveryBusy(true)
+    setAutoEnabled(false)
+    try {
+      await session.confirmRecoveryFinalize()
+    } finally {
+      setRecoveryBusy(false)
+    }
+  }
+
+  async function handleRecoveryDiscard() {
+    setRecoveryBusy(true)
+    setAutoEnabled(false)
+    try {
+      await session.confirmRecoveryDiscard()
+    } finally {
+      setRecoveryBusy(false)
+    }
+  }
+
   const recordDisabled = !sessionActive || autoEnabled || sessionPaused
 
   const mapProps = {
@@ -277,11 +387,11 @@ export default function RecordingPage({ isActive = true }) {
     sessionNameDraft,
     onNameDraftChange: setSessionNameDraft,
     startingSession,
-    onStart: handleStartSession,
+    onStart: requestStart,
     stoppingSession,
-    onStop: handleStopSession,
+    onStop: requestStop,
     togglingPause,
-    onTogglePause: handleTogglePause,
+    onTogglePause: requestTogglePause,
     autoEnabled,
     onToggleAuto: () => setAutoEnabled((prev) => !prev),
     nextRecordingIn,
@@ -322,9 +432,33 @@ export default function RecordingPage({ isActive = true }) {
     )
   }
 
+  const confirmConfig = pendingConfirm ? CONFIRM_CONFIG[pendingConfirm.kind] : null
+
   return (
     <>
       <RecordToast record={recordToast} onDismiss={dismissRecordToast} />
+
+      <CrashRecoveryModal
+        open={session.recoveryPending}
+        meta={session.recoveredMeta}
+        busy={recoveryBusy}
+        onResume={handleRecoveryResume}
+        onFinalize={handleRecoveryFinalize}
+        onDiscard={handleRecoveryDiscard}
+      />
+
+      {confirmConfig ? (
+        <ConfirmDialog
+          open
+          title={confirmConfig.title}
+          message={confirmConfig.message}
+          confirmLabel={confirmConfig.confirmLabel}
+          tone={confirmConfig.tone}
+          busy={confirmBusy}
+          onConfirm={handleConfirm}
+          onCancel={closeConfirm}
+        />
+      ) : null}
 
       {isLandscape ? (
         <div className="flex gap-3" style={{ height: 'calc(100dvh - 9.5rem)' }}>
@@ -332,11 +466,17 @@ export default function RecordingPage({ isActive = true }) {
             <RecordingMap className="h-full w-full" {...mapProps} />
           </div>
           <div className="flex min-h-0 flex-1 flex-col gap-2">
+            <SystemStatusBanner
+              online={online}
+              gpsStale={gpsHealth.stale}
+              gpsSecondsSinceFix={gpsHealth.secondsSinceFix}
+              battery={battery}
+            />
             <SessionBar showPrimaryAction={false} {...sessionBarProps} />
             <TrafficLevelPanel className="flex min-h-0 flex-1 flex-col" {...trafficPanelProps} />
             <button
               type="button"
-              onClick={!sessionActive ? handleStartSession : recordNow}
+              onClick={!sessionActive ? requestStart : recordNow}
               disabled={!sessionActive ? startingSession : recordDisabled}
               className={`shrink-0 w-full rounded-xl py-3 text-base font-bold transition disabled:opacity-50 ${
                 !sessionActive
@@ -360,6 +500,12 @@ export default function RecordingPage({ isActive = true }) {
         </div>
       ) : (
         <div className="flex flex-col gap-2" style={{ height: 'calc(100dvh - 9.5rem)' }}>
+          <SystemStatusBanner
+            online={online}
+            gpsStale={gpsHealth.stale}
+            gpsSecondsSinceFix={gpsHealth.secondsSinceFix}
+            battery={battery}
+          />
           <SessionBar showPrimaryAction={false} {...sessionBarProps} />
           <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
             <RecordingMap className="h-full w-full" {...mapProps} />
@@ -367,7 +513,7 @@ export default function RecordingPage({ isActive = true }) {
           <TrafficLevelPanel className="shrink-0" {...trafficPanelProps} />
           <button
             type="button"
-            onClick={!sessionActive ? handleStartSession : recordNow}
+            onClick={!sessionActive ? requestStart : recordNow}
             disabled={!sessionActive ? startingSession : recordDisabled}
             className={`shrink-0 w-full rounded-xl py-4 text-base font-bold transition disabled:opacity-50 ${
               !sessionActive

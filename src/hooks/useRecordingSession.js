@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAutoRecord } from './useAutoRecord'
 import { useScreenWakeLock } from './useScreenWakeLock'
 import { playNotificationBeep } from '../utils/audio'
+import { touchSessionHeartbeat } from '../db'
 
 function sanitizePath(path) {
   if (!Array.isArray(path)) {
@@ -169,6 +170,22 @@ export function useRecordingSession({
 
     return () => clearInterval(saver)
   }, [activeSessionId, saveActiveSessionPath])
+
+  // Liveness heartbeat every 5s so crash recovery can tell how long ago the
+  // session was last alive. Runs even while paused (the runtime is still up);
+  // it is a cheap, non-indexed write that triggers no React re-render.
+  useEffect(() => {
+    if (!activeSessionId) {
+      return undefined
+    }
+
+    void touchSessionHeartbeat(activeSessionId)
+    const beat = setInterval(() => {
+      void touchSessionHeartbeat(activeSessionId)
+    }, 5000)
+
+    return () => clearInterval(beat)
+  }, [activeSessionId])
 
   // Initialise the manual countdown when a session starts / interval changes.
   useEffect(() => {
