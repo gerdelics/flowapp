@@ -6,7 +6,9 @@ import { VitePWA } from 'vite-plugin-pwa'
 const env = globalThis?.process?.env || {}
 const isGitHubActions = env.GITHUB_ACTIONS === 'true'
 const repoName = env.GITHUB_REPOSITORY?.split('/')?.[1] || 'flowapp'
-const base = isGitHubActions ? `/${repoName}/` : '/'
+// BASE_PATH lets the CI workflow deploy different branches under different
+// sub-paths (e.g. /flowapp/ for main, /flowapp/testing/ for the testing branch).
+const base = env.BASE_PATH || (isGitHubActions ? `/${repoName}/` : '/')
 
 function getGitCommit() {
   try {

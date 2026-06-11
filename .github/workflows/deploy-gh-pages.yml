@@ -4,19 +4,19 @@ on:
   push:
     branches:
       - main
+      - testing
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
+# Keep main and testing deploys independent so they don't cancel each other.
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,27 +28,35 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Resolve deploy target
+        id: vars
+        run: |
+          repo="${{ github.event.repository.name }}"
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "base=/$repo/" >> "$GITHUB_OUTPUT"
+            echo "dest=" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=/$repo/${{ github.ref_name }}/" >> "$GITHUB_OUTPUT"
+            echo "dest=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install dependencies
         run: npm ci
 
       - name: Build app
         run: npm run build
+        env:
+          BASE_PATH: ${{ steps.vars.outputs.base }}
 
       - name: SPA fallback for GitHub Pages
         run: cp dist/index.html dist/404.html
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./dist
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          # Empty for main (site root), "testing" for the testing branch.
+          destination_dir: ${{ steps.vars.outputs.dest }}
+          # Keep the other branch's folder intact instead of wiping the whole branch.
+          keep_files: true
