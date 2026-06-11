@@ -18,6 +18,9 @@ function RecordingMap({
   onZoomLevelChange,
   fitRouteKey,
   onRefreshCurrentLocation,
+  selectedRouteName,
+  onOpenRoutePicker,
+  onClearSelectedRoute,
 }) {
   return (
     <RouteMap
@@ -35,6 +38,10 @@ function RecordingMap({
       fitRoute={false}
       fitRouteKey={fitRouteKey}
       showFullscreenControl
+      showRouteControl
+      selectedRouteName={selectedRouteName}
+      onOpenRoutePicker={onOpenRoutePicker}
+      onClearSelectedRoute={onClearSelectedRoute}
       onRefreshCurrentLocation={onRefreshCurrentLocation}
     />
   )

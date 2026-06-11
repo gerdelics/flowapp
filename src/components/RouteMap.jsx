@@ -36,6 +36,10 @@ function RouteMap({
   showResetControl = true,
   showDriveModeControl = true,
   showFullscreenControl = false,
+  showRouteControl = false,
+  selectedRouteName,
+  onOpenRoutePicker,
+  onClearSelectedRoute,
   onRefreshCurrentLocation,
   resetZoomLevel = 16,
   onZoomLevelChange,
@@ -54,7 +58,7 @@ function RouteMap({
   const prevPathColorRef = useRef(null)
   const driveModeRef = useRef(false)
   const onZoomLevelChangeRef = useRef(onZoomLevelChange)
-  const initialZoomRef = useRef(defaultZoom)
+  const currentZoomRef = useRef(defaultZoom)
   const recenterAfterFullscreenToggleRef = useRef(false)
   const [isMapMaximized, setIsMapMaximized] = useState(false)
   const [mapMountKey, setMapMountKey] = useState(0)
@@ -91,7 +95,7 @@ function RouteMap({
 
     const map = L.map(container, {
       zoomControl: true,
-    }).setView(DEFAULT_CENTER, initialZoomRef.current)
+    }).setView(DEFAULT_CENTER, currentZoomRef.current)
 
     L.tileLayer(TILE_URL, {
       maxZoom: 19,
@@ -106,6 +110,7 @@ function RouteMap({
     }
 
     map.on('zoomend', () => {
+      currentZoomRef.current = map.getZoom()
       onZoomLevelChangeRef.current?.(Math.round(map.getZoom()))
     })
 
@@ -303,7 +308,7 @@ function RouteMap({
         overlayPathRef.current = null
       }
     }
-  }, [latLngOverlay, overlayPathColor])
+  }, [latLngOverlay, overlayPathColor, mapMountKey])
 
   useEffect(() => {
     const map = mapRef.current
@@ -417,6 +422,10 @@ function RouteMap({
   async function handleToggleFullscreen() {
     recenterAfterFullscreenToggleRef.current = true
 
+    if (mapRef.current) {
+      currentZoomRef.current = mapRef.current.getZoom()
+    }
+
     if (onRefreshCurrentLocation) {
       await onRefreshCurrentLocation()
     }
@@ -433,6 +442,8 @@ function RouteMap({
     ? 'relative z-0 h-full w-full'
     : `relative z-0 ${className || 'h-full w-full rounded-md'}`
 
+  const hasSelectedRoute = Boolean(selectedRouteName)
+
   return (
     <div className={wrapperClassName}>
       <div key={mapMountKey} ref={containerRef} className={mapClassName} />
@@ -443,7 +454,11 @@ function RouteMap({
             <button
               type="button"
               onClick={handleToggleFullscreen}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-600 bg-slate-950/85 text-slate-300 shadow-lg backdrop-blur transition hover:border-cyan-400 hover:text-cyan-300"
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-lg backdrop-blur transition ${
+                isMapMaximized
+                  ? 'border-cyan-300 bg-slate-950/95 text-cyan-200 hover:border-cyan-200 hover:bg-slate-900/95 hover:text-cyan-100'
+                  : 'border-slate-600 bg-slate-950/85 text-slate-300 hover:border-cyan-400 hover:text-cyan-300'
+              }`}
               title={isMapMaximized ? 'Restore map size' : 'Expand map'}
               aria-label={isMapMaximized ? 'Restore map size' : 'Expand map'}
             >
@@ -462,6 +477,48 @@ function RouteMap({
                   <polyline points="3 9 3 3 9 3" />
                 </svg>
               )}
+            </button>
+          ) : null}
+
+          {showRouteControl ? (
+            <button
+              type="button"
+              onClick={onOpenRoutePicker}
+              className={`inline-flex h-10 items-center justify-center gap-2 rounded-full border px-3 shadow-lg backdrop-blur transition ${
+                hasSelectedRoute
+                  ? 'border-orange-300 bg-slate-950/95 text-orange-200 hover:border-orange-200 hover:bg-slate-900/95 hover:text-orange-100'
+                  : 'border-slate-600 bg-slate-950/85 text-slate-300 hover:border-cyan-400 hover:text-cyan-300'
+              }`}
+              title={hasSelectedRoute ? 'Replace loaded route' : 'Load route'}
+              aria-label={hasSelectedRoute ? 'Replace loaded route' : 'Load route'}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                <path d="M3 7h5l2 2h11" />
+                <path d="M3 17h5l2-2h11" />
+                <path d="M16 5l2 2-2 2" />
+                <path d="M16 13l2 2-2 2" />
+              </svg>
+              {hasSelectedRoute ? (
+                <span className="max-w-[170px] truncate text-xs font-semibold">{selectedRouteName}</span>
+              ) : null}
+            </button>
+          ) : null}
+
+          {showRouteControl && hasSelectedRoute ? (
+            <button
+              type="button"
+              onClick={onClearSelectedRoute}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-600 bg-slate-950/85 text-slate-400 shadow-lg backdrop-blur transition hover:border-red-400 hover:text-red-300"
+              title="Reset selected route"
+              aria-label="Reset selected route"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                <path d="M3 6h18" />
+                <path d="M8 6V4h8v2" />
+                <path d="M19 6l-1 13a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M10 11v6" />
+                <path d="M14 11v6" />
+              </svg>
             </button>
           ) : null}
 
@@ -490,7 +547,7 @@ function RouteMap({
               onClick={handleToggleDriveMode}
               className={`inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-lg backdrop-blur transition ${
                 isDriveModeEnabled
-                  ? 'border-cyan-400 bg-cyan-500/20 text-cyan-300'
+                  ? 'border-cyan-300 bg-slate-950/95 text-cyan-200 hover:border-cyan-200 hover:bg-slate-900/95 hover:text-cyan-100'
                   : 'border-slate-600 bg-slate-950/85 text-slate-400 hover:border-slate-400 hover:text-slate-200'
               }`}
               title={isDriveModeEnabled ? 'Auto-follow on – tap to disable' : 'Auto-follow off – tap to enable'}

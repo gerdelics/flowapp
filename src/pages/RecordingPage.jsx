@@ -187,6 +187,14 @@ export default function RecordingPage({ isActive = true }) {
     [filterByCity, routeCityFilter],
   )
 
+  const selectedOverlayRouteName = useMemo(() => {
+    if (!selectedOverlayRouteId) {
+      return ''
+    }
+
+    return savedRoutes.find((route) => route.id === selectedOverlayRouteId)?.name || ''
+  }, [savedRoutes, selectedOverlayRouteId])
+
   const handleMapZoomChange = useCallback(
     (nextZoom) => {
       if (!Number.isFinite(nextZoom) || Math.round(nextZoom) === Math.round(mapZoomLevel)) {
@@ -344,40 +352,45 @@ export default function RecordingPage({ isActive = true }) {
     onZoomLevelChange: handleMapZoomChange,
     fitRouteKey: activeSessionId,
     onRefreshCurrentLocation: geolocation.requestOnce,
+    selectedRouteName: selectedOverlayRouteName,
+    onOpenRoutePicker: () => setRoutePickerOpen(true),
+    onClearSelectedRoute: handleClearOverlayRoute,
   }
 
   return (
     <>
       <RecordToast record={recordToast} onDismiss={dismissRecordToast} />
 
-      <section className="mb-4 md:hidden">
-        <details
-          className="group overflow-hidden rounded-xl border border-slate-700 bg-slate-900"
-          open={mobileMapOpen}
-          onToggle={(event) => setMobileMapOpen(event.currentTarget.open)}
-        >
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">
-                Recording map
-              </p>
-              <p className="truncate text-sm font-bold text-slate-100">
-                {session.session ? session.session.name : 'No running session'}
-              </p>
-            </div>
-            <span className="flex items-center gap-1 text-xs font-semibold text-slate-400">
-              <span>{mobileMapOpen ? 'Hide' : 'Show'}</span>
-              <span className="transition group-open:rotate-180" aria-hidden="true">
-                ▾
+      {!isMdUp ? (
+        <section className="mb-4 md:hidden">
+          <details
+            className="group overflow-hidden rounded-xl border border-slate-700 bg-slate-900"
+            open={mobileMapOpen}
+            onToggle={(event) => setMobileMapOpen(event.currentTarget.open)}
+          >
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">
+                  Recording map
+                </p>
+                <p className="truncate text-sm font-bold text-slate-100">
+                  {session.session ? session.session.name : 'No running session'}
+                </p>
+              </div>
+              <span className="flex items-center gap-1 text-xs font-semibold text-slate-400">
+                <span>{mobileMapOpen ? 'Hide' : 'Show'}</span>
+                <span className="transition group-open:rotate-180" aria-hidden="true">
+                  ▾
+                </span>
               </span>
-            </span>
-          </summary>
+            </summary>
 
-          <div className="border-t border-slate-700 p-3">
-            <RecordingMap className="h-[42vh] min-h-[250px] w-full rounded-lg" {...mapProps} />
-          </div>
-        </details>
-      </section>
+            <div className="border-t border-slate-700 p-3">
+              <RecordingMap className="h-[42vh] min-h-[250px] w-full rounded-lg" {...mapProps} />
+            </div>
+          </details>
+        </section>
+      ) : null}
 
       {routePickerOpen ? (
         <RoutePickerModal
