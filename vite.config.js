@@ -62,6 +62,12 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // The root (main) SW has scope "/flowapp/", which also covers sub-path
+        // deploys like "/flowapp/testing/". Without this denylist its SPA
+        // navigation fallback would serve the main index.html for those URLs,
+        // bouncing them back to "/flowapp/". Let those navigations hit the
+        // network so each sub-deploy loads its own app + service worker.
+        navigateFallbackDenylist: [/\/testing\//],
         runtimeCaching: [
           {
             urlPattern: ({ request }) => request.destination === 'document',
