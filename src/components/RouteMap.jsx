@@ -454,7 +454,9 @@ function RouteMap({
 
       {showMapControls ? (
         <div className="absolute right-3 top-3 z-[1000] flex flex-col items-end gap-2">
-          {showRouteControl ? (
+          {/* Row 1: fullscreen · reset · drive mode */}
+          <div className="flex flex-row items-center gap-2">
+                      {showRouteControl ? (
             <div className="flex flex-row items-center justify-end gap-2">
               <button
                 type="button"
@@ -474,7 +476,7 @@ function RouteMap({
                   <path d="M16 13l2 2-2 2" />
                 </svg>
                 {hasSelectedRoute ? (
-                  <span className="max-w-[170px] truncate text-xs font-semibold">{selectedRouteName}</span>
+                  <span className="max-w-[140px] truncate text-xs font-semibold">{selectedRouteName}</span>
                 ) : null}
               </button>
 
@@ -483,8 +485,8 @@ function RouteMap({
                   type="button"
                   onClick={onClearSelectedRoute}
                   className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-600 bg-slate-950/85 text-slate-400 shadow-lg backdrop-blur transition hover:border-red-400 hover:text-red-300"
-                  title="Reset selected route"
-                  aria-label="Reset selected route"
+                  title="Remove loaded route"
+                  aria-label="Remove loaded route"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                     <path d="M3 6h18" />
@@ -497,76 +499,76 @@ function RouteMap({
               ) : null}
             </div>
           ) : null}
+            {showFullscreenControl ? (
+              <button
+                type="button"
+                onClick={handleToggleFullscreen}
+                className={`inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-lg backdrop-blur transition ${
+                  isMapMaximized
+                    ? 'border-cyan-300 bg-slate-950/95 text-cyan-200 hover:border-cyan-200 hover:bg-slate-900/95 hover:text-cyan-100'
+                    : 'border-slate-600 bg-slate-950/85 text-slate-300 hover:border-cyan-400 hover:text-cyan-300'
+                }`}
+                title={isMapMaximized ? 'Restore map size' : 'Expand map'}
+                aria-label={isMapMaximized ? 'Restore map size' : 'Expand map'}
+              >
+                {isMapMaximized ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                    <polyline points="9 3 9 9 3 9" />
+                    <polyline points="15 3 15 9 21 9" />
+                    <polyline points="9 21 9 15 3 15" />
+                    <polyline points="15 21 15 15 21 15" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                    <polyline points="15 3 21 3 21 9" />
+                    <polyline points="9 21 3 21 3 15" />
+                    <polyline points="21 15 21 21 15 21" />
+                    <polyline points="3 9 3 3 9 3" />
+                  </svg>
+                )}
+              </button>
+            ) : null}
 
-          {showFullscreenControl ? (
-            <button
-              type="button"
-              onClick={handleToggleFullscreen}
-              className={`inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-lg backdrop-blur transition ${
-                isMapMaximized
-                  ? 'border-cyan-300 bg-slate-950/95 text-cyan-200 hover:border-cyan-200 hover:bg-slate-900/95 hover:text-cyan-100'
-                  : 'border-slate-600 bg-slate-950/85 text-slate-300 hover:border-cyan-400 hover:text-cyan-300'
-              }`}
-              title={isMapMaximized ? 'Restore map size' : 'Expand map'}
-              aria-label={isMapMaximized ? 'Restore map size' : 'Expand map'}
-            >
-              {isMapMaximized ? (
+            {showResetControl ? (
+              <button
+                type="button"
+                onClick={handleResetToCurrentLocation}
+                disabled={!hasCurrentLocation}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-600 bg-slate-950/85 text-slate-300 shadow-lg backdrop-blur transition hover:border-cyan-400 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-40"
+                title="Reset map to current location"
+                aria-label="Reset map to current location"
+              >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                  <polyline points="9 3 9 9 3 9" />
-                  <polyline points="15 3 15 9 21 9" />
-                  <polyline points="9 21 9 15 3 15" />
-                  <polyline points="15 21 15 15 21 15" />
+                  <circle cx="12" cy="12" r="3" />
+                  <line x1="12" y1="2" x2="12" y2="6" />
+                  <line x1="12" y1="18" x2="12" y2="22" />
+                  <line x1="2" y1="12" x2="6" y2="12" />
+                  <line x1="18" y1="12" x2="22" y2="12" />
                 </svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                  <polyline points="15 3 21 3 21 9" />
-                  <polyline points="9 21 3 21 3 15" />
-                  <polyline points="21 15 21 21 15 21" />
-                  <polyline points="3 9 3 3 9 3" />
+              </button>
+            ) : null}
+
+            {showDriveModeControl ? (
+              <button
+                type="button"
+                onClick={handleToggleDriveMode}
+                className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-lg backdrop-blur transition-all duration-200 ${
+                  isDriveModeEnabled
+                    ? 'border-cyan-400 bg-cyan-500 text-white shadow-cyan-500/50 hover:bg-cyan-400 hover:shadow-cyan-400/60'
+                    : 'border-slate-600 bg-slate-950/85 text-slate-400 hover:border-slate-400 hover:text-slate-200'
+                }`}
+                title={isDriveModeEnabled ? 'Auto-follow on – tap to disable' : 'Auto-follow off – tap to enable'}
+                aria-label="Toggle drive mode"
+              >
+                {isDriveModeEnabled ? (
+                  <span className="absolute inset-0 rounded-full animate-ping bg-cyan-400 opacity-30" />
+                ) : null}
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+                  <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z" />
                 </svg>
-              )}
-            </button>
-          ) : null}
-
-          {showResetControl ? (
-            <button
-              type="button"
-              onClick={handleResetToCurrentLocation}
-              disabled={!hasCurrentLocation}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-600 bg-slate-950/85 text-slate-300 shadow-lg backdrop-blur transition hover:border-cyan-400 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-40"
-              title="Reset map to current location"
-              aria-label="Reset map to current location"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                <circle cx="12" cy="12" r="3" />
-                <line x1="12" y1="2" x2="12" y2="6" />
-                <line x1="12" y1="18" x2="12" y2="22" />
-                <line x1="2" y1="12" x2="6" y2="12" />
-                <line x1="18" y1="12" x2="22" y2="12" />
-              </svg>
-            </button>
-          ) : null}
-
-          {showDriveModeControl ? (
-            <button
-              type="button"
-              onClick={handleToggleDriveMode}
-              className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-lg backdrop-blur transition-all duration-200 ${
-                isDriveModeEnabled
-                  ? 'border-cyan-400 bg-cyan-500 text-white shadow-cyan-500/50 hover:bg-cyan-400 hover:shadow-cyan-400/60'
-                  : 'border-slate-600 bg-slate-950/85 text-slate-400 hover:border-slate-400 hover:text-slate-200'
-              }`}
-              title={isDriveModeEnabled ? 'Auto-follow on – tap to disable' : 'Auto-follow off – tap to enable'}
-              aria-label="Toggle drive mode"
-            >
-              {isDriveModeEnabled ? (
-                <span className="absolute inset-0 rounded-full animate-ping bg-cyan-400 opacity-30" />
-              ) : null}
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
-                <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z" />
-              </svg>
-            </button>
-          ) : null}
+              </button>
+            ) : null}
+          </div>
         </div>
       ) : null}
     </div>

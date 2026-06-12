@@ -141,23 +141,15 @@ export function useRecordingSession({
     })
   }, [isActive, requestOnce])
 
-  // Continuous high-accuracy watch only while actively recording (and not
-  // paused). It keeps running across in-app navigation so a session started by
-  // the user is never silently dropped; useGeolocation still pauses it whenever
-  // the tab is hidden. Outside an active session the map relies on the one-shot
-  // fix above instead of pinning the GPS radio on.
+  // Keep the GPS watch running whenever this page is active so the map marker
+  // updates continuously regardless of whether a session is in progress.
+  // useGeolocation automatically pauses the watch when the tab is hidden.
   useEffect(() => {
-    if (!sessionActive || sessionPaused) {
-      stopWatching()
-      return undefined
-    }
+    if (!isActive) return undefined
 
     startWatching()
-
-    return () => {
-      stopWatching()
-    }
-  }, [sessionActive, sessionPaused, startWatching, stopWatching])
+    return () => stopWatching()
+  }, [isActive, startWatching, stopWatching])
 
   // Single stable sampler: one point per second from the freshest fix.
   useEffect(() => {
