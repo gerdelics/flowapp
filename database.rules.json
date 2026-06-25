@@ -15,6 +15,11 @@
       ".write": "auth != null",
       ".indexOn": ["city", "createdAt"]
     },
+    "cities": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["name"]
+    },
     "users": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",

@@ -2,9 +2,14 @@ export default function SessionBar({
   sessionActive,
   sessionPaused,
   sessionName,
+  sessionCity,
   sessionNameDraft,
   onNameDraftChange,
+  cityDraft,
+  onCityDraftChange,
+  cities = [],
   startingSession,
+  startDisabled,
   onStart,
   stoppingSession,
   onStop,
@@ -54,11 +59,29 @@ export default function SessionBar({
               placeholder="Session name"
               className="min-h-8 flex-1 rounded-lg border border-slate-600 bg-slate-800 px-3 py-1 text-sm text-slate-100 placeholder:text-slate-500 transition focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/30"
             />
+            <select
+              value={cityDraft || ''}
+              onChange={(e) => onCityDraftChange(e.target.value)}
+              required
+              title="City (required, from Routes)"
+              className={`min-h-8 w-28 shrink-0 rounded-lg border bg-slate-800 px-2 py-1 text-sm transition focus:border-cyan-500 focus:outline-none ${
+                cityDraft ? 'border-slate-600 text-slate-100' : 'border-amber-500/60 text-slate-400'
+              }`}
+            >
+              <option value="" disabled>
+                {cities.length === 0 ? 'Add a route' : 'City…'}
+              </option>
+              {cities.map((city) => (
+                <option key={city} value={city}>
+                  {city}
+                </option>
+              ))}
+            </select>
             {showPrimaryAction ? (
               <button
                 type="button"
                 onClick={onStart}
-                disabled={startingSession}
+                disabled={startDisabled}
                 className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-bold disabled:opacity-50"
               >
                 {startingSession ? 'Starting…' : 'Start session'}
@@ -67,7 +90,10 @@ export default function SessionBar({
           </>
         ) : (
           <>
-            <span className="flex-1 truncate text-sm font-semibold text-slate-100">{sessionName}</span>
+            <span className="flex-1 truncate text-sm font-semibold text-slate-100">
+              {sessionName}
+              {sessionCity ? <span className="ml-1.5 font-normal text-slate-400">· {sessionCity}</span> : null}
+            </span>
 
             {!sessionPaused ? (
               <div className="flex shrink-0 items-center gap-1.5">

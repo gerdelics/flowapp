@@ -80,8 +80,8 @@ export function useSession(activeProviders) {
     }
   }, [])
 
-  const beginSession = useCallback(async (name) => {
-    const created = await startSession(name)
+  const beginSession = useCallback(async (name, city) => {
+    const created = await startSession(name, city)
     setSession(created)
     return created
   }, [])

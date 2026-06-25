@@ -9,7 +9,6 @@ const links = [
   { to: '/', label: 'Recording' },
   { to: '/sessions', label: 'Sessions' },
   { to: '/routes', label: 'Routes' },
-  { to: '/pois', label: 'POIs' },
   { to: '/settings', label: 'Settings' },
 ]
 

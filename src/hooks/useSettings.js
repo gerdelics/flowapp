@@ -108,12 +108,7 @@ export function useSettings() {
     [patchSettingsDebounced],
   )
 
-  // Toggles and the map zoom write immediately (single, deliberate actions).
-  const setMapZoomLevel = useCallback(
-    (mapZoomLevel) => patchSettings({ mapZoomLevel }),
-    [patchSettings],
-  )
-
+  // Toggles write immediately (single, deliberate actions).
   const setManualBeepEnabled = useCallback(
     (manualBeepEnabled) => patchSettings({ manualBeepEnabled }),
     [patchSettings],
@@ -216,7 +211,6 @@ export function useSettings() {
     loading,
     setObserverName,
     setSampleIntervalSec,
-    setMapZoomLevel,
     toggleProvider,
     addProvider,
     deleteProvider,

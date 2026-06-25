@@ -64,7 +64,6 @@ const DEFAULT_PROVIDERS = [
 const DEFAULT_SETTINGS = {
   observerName: 'Observer',
   sampleIntervalSec: 30,
-  mapZoomLevel: 14,
   providers: DEFAULT_PROVIDERS,
   manualBeepEnabled: true,
   recordingWarningLeadSec: 5,
@@ -107,9 +106,14 @@ function withSettingsDefaults(settings) {
     }
   })
 
+  // mapZoomLevel is a per-device preference (localStorage); drop any legacy
+  // value that may still be stored in synced settings.
+  const baseWithoutZoom = { ...base }
+  delete baseWithoutZoom.mapZoomLevel
+
   return {
     ...DEFAULT_SETTINGS,
-    ...base,
+    ...baseWithoutZoom,
     providers,
     recordedPathColor: normalizeHexColor(
       base.recordedPathColor,
@@ -135,10 +139,6 @@ function withSettingsDefaults(settings) {
       typeof base.warningSoundEnabled === 'boolean'
         ? base.warningSoundEnabled
         : DEFAULT_SETTINGS.warningSoundEnabled,
-    mapZoomLevel:
-      Number.isFinite(base.mapZoomLevel) && base.mapZoomLevel >= 1 && base.mapZoomLevel <= 19
-        ? Math.round(base.mapZoomLevel)
-        : DEFAULT_SETTINGS.mapZoomLevel,
   }
 }
 
@@ -152,6 +152,7 @@ function normalizeSession(id, raw) {
     id,
     owner: raw.owner ?? null,
     name: raw.name || '',
+    city: raw.city || '',
     startTime: raw.startTime || null,
     endTime: raw.endTime ?? null,
     pausedAt: raw.pausedAt ?? null,
@@ -190,6 +191,18 @@ function normalizeRoute(id, raw) {
     city: raw.city || '',
     name: raw.name || '',
     points: Array.isArray(raw.points) ? raw.points : [],
+    createdAt: raw.createdAt || null,
+  }
+}
+
+function normalizeCity(id, raw) {
+  if (!raw) {
+    return null
+  }
+  return {
+    id,
+    owner: raw.owner ?? null,
+    name: raw.name || '',
     createdAt: raw.createdAt || null,
   }
 }
@@ -254,13 +267,14 @@ export function subscribeSettings(callback) {
 
 // --- Sessions --------------------------------------------------------------
 
-export async function startSession(name) {
+export async function startSession(name, city) {
   const now = new Date().toISOString()
   const id = uuidv4()
   const session = {
     id,
     owner: currentUid(),
     name: name?.trim() || new Date().toLocaleString(),
+    city: city?.trim() || '',
     startTime: now,
     endTime: null,
     pausedAt: null,
@@ -493,6 +507,69 @@ export function subscribeRoutes(callback) {
   })
 }
 
+// --- Cities (shared, explicitly managed) -----------------------------------
+
+export async function addCity(name) {
+  const trimmed = name?.trim()
+  if (!trimmed) {
+    return null
+  }
+  const id = uuidv4()
+  const city = {
+    id,
+    owner: currentUid(),
+    name: trimmed,
+    createdAt: new Date().toISOString(),
+  }
+  writeThrough('set', `cities/${id}`, city)
+  return normalizeCity(id, city)
+}
+
+export async function deleteCity(cityId) {
+  writeThrough('remove', `cities/${cityId}`)
+}
+
+// Renames a city and cascades the new name to every route and session that
+// referenced the old name, so labels stay consistent across the app.
+export async function renameCity(cityId, nextName, prevName) {
+  const trimmed = nextName?.trim()
+  if (!cityId || !trimmed) {
+    return null
+  }
+
+  writeThrough('update', `cities/${cityId}`, { name: trimmed })
+
+  if (prevName && prevName !== trimmed) {
+    const [routesSnap, sessionsSnap] = await Promise.all([
+      get(dbRef(db, 'routes')),
+      get(dbRef(db, 'sessions')),
+    ])
+
+    const routes = routesSnap.val() || {}
+    Object.entries(routes).forEach(([id, raw]) => {
+      if (raw?.city === prevName) {
+        writeThrough('update', `routes/${id}`, { city: trimmed })
+      }
+    })
+
+    const sessions = sessionsSnap.val() || {}
+    Object.entries(sessions).forEach(([id, raw]) => {
+      if (raw?.city === prevName) {
+        writeThrough('update', `sessions/${id}`, { city: trimmed })
+      }
+    })
+  }
+
+  return { id: cityId, name: trimmed }
+}
+
+export function subscribeCities(callback) {
+  return onValue(dbRef(db, 'cities'), (snap) => {
+    const data = snap.val() || {}
+    callback(Object.entries(data).map(([id, raw]) => normalizeCity(id, raw)))
+  })
+}
+
 // --- Import / wipe ---------------------------------------------------------
 
 export async function importSessionArchive(archive) {
@@ -514,6 +591,7 @@ export async function importSessionArchive(archive) {
     id: sessionId,
     owner: uid,
     name: sourceSession.name || new Date().toLocaleString(),
+    city: sourceSession.city || '',
     startTime: sourceSession.startTime || new Date().toISOString(),
     endTime: sourceSession.endTime ?? new Date().toISOString(),
     pausedAt: null,

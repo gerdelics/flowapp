@@ -7,6 +7,7 @@ export default function RouteEditPanel({
   setEditName,
   editError,
   editSaving,
+  cities = [],
   onSave,
   onCancel,
   onDelete,
@@ -17,6 +18,7 @@ export default function RouteEditPanel({
         city={editCity}
         onCityChange={setEditCity}
         cityPlaceholder="City"
+        cities={cities}
         name={editName}
         onNameChange={setEditName}
         namePlaceholder="Route name"
