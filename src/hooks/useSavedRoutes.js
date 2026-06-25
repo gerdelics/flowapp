@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { db } from '../db'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { subscribeRoutes } from '../db'
 
 // Distinct, sorted list of city names from a set of routes.
 export function getRouteCities(routes) {
@@ -15,36 +15,28 @@ export function filterRoutesByCity(routes, city) {
   return (routes || []).filter((route) => route.city === city)
 }
 
-// Shared loader for saved routes. Previously every page that needed routes
-// duplicated this same load + city-derivation + city-filtering logic.
+// Shared loader for saved routes. Backed by a live Firebase subscription so
+// routes stay in sync across devices.
 export function useSavedRoutes() {
   const [routes, setRoutes] = useState([])
   const [loading, setLoading] = useState(true)
-
-  const reload = useCallback(async () => {
-    const list = await db.routes.orderBy('city').toArray()
-    setRoutes(list)
-    setLoading(false)
-    return list
-  }, [])
+  const routesRef = useRef(routes)
 
   useEffect(() => {
-    let mounted = true
+    routesRef.current = routes
+  }, [routes])
 
-    db.routes
-      .orderBy('city')
-      .toArray()
-      .then((list) => {
-        if (mounted) {
-          setRoutes(list)
-          setLoading(false)
-        }
-      })
-
-    return () => {
-      mounted = false
-    }
+  useEffect(() => {
+    const unsubscribe = subscribeRoutes((list) => {
+      const sorted = [...list].sort((a, b) => (a.city || '').localeCompare(b.city || ''))
+      setRoutes(sorted)
+      setLoading(false)
+    })
+    return unsubscribe
   }, [])
+
+  // The subscription keeps routes current; reload just returns the latest list.
+  const reload = useCallback(async () => routesRef.current, [])
 
   const cities = useMemo(() => getRouteCities(routes), [routes])
 

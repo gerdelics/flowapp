@@ -6,6 +6,7 @@ export default function OverlayModal({
   title,
   children,
   maxWidthClassName = 'max-w-md',
+  showHeaderClose = true,
 }) {
   return (
     <BaseModal
@@ -18,13 +19,15 @@ export default function OverlayModal({
     >
       <div className="mb-4 flex items-center justify-between">
         <p className="text-base font-bold text-slate-100">{title}</p>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-sm text-slate-500 hover:text-slate-200"
-        >
-          Cancel
-        </button>
+        {showHeaderClose ? (
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm text-slate-500 hover:text-slate-200"
+          >
+            Cancel
+          </button>
+        ) : null}
       </div>
 
       {children}

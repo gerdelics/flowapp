@@ -2,19 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import 'leaflet/dist/leaflet.css'
 import {
-  getDeadLetterEntriesBySessionId,
   getEntriesBySessionId,
-  getRetryableUnsyncedEntriesBySessionId,
   getSessionById,
-  markEntriesSyncFailed,
-  markEntriesSynced,
-  MAX_SYNC_ATTEMPTS,
-  resetEntriesForRetry,
   setSessionPlannedRoute,
 } from '../db'
 import { useSavedRoutes } from '../hooks/useSavedRoutes'
 import { useSettings } from '../hooks/useSettings'
-import { syncEntriesToAzure } from '../utils/azureSync'
 import { exportLegacyCsv } from '../utils/csvExport'
 import {
   buildSessionArchiveFilename,
@@ -26,7 +19,7 @@ import {
   getSessionAverageSpeedKmh,
   getSessionPathDistanceKm,
 } from '../utils/sessionMetrics'
-import { RouteMap, RoutePickerModal, SyncActionButtons, TrafficLevelBadge } from '../components'
+import { RouteMap, RoutePickerModal, TrafficLevelBadge } from '../components'
 
 function mapProviderLevels(entry) {
   const map = {}
@@ -43,12 +36,9 @@ export default function SessionDetailPage() {
   const [routePickerOpen, setRoutePickerOpen] = useState(false)
   const [routeCityFilter, setRouteCityFilter] = useState('')
   const [routeCityComboboxOpen, setRouteCityComboboxOpen] = useState(false)
-  const [syncing, setSyncing] = useState(false)
-  const [statusMessage, setStatusMessage] = useState('')
   const [showPath, setShowPath] = useState(true)
   const { settings } = useSettings()
   const { cities: routeCities, filterByCity } = useSavedRoutes()
-  const canSync = Boolean(settings?.azureEndpointUrl && settings?.azureApiKey)
 
   useEffect(() => {
     async function load() {
@@ -109,68 +99,6 @@ export default function SessionDetailPage() {
     downloadSessionArchive(session, entries, buildSessionArchiveFilename(session))
   }
 
-  async function handleSync() {
-    if (!canSync) {
-      setStatusMessage('Add Cosmos DB endpoint and API key in Settings before sync.')
-      return
-    }
-
-    setSyncing(true)
-    setStatusMessage('')
-    try {
-      const retryable = await getRetryableUnsyncedEntriesBySessionId(session.id)
-      if (retryable.length === 0) {
-        setStatusMessage(
-          `No retryable entries in this session (already synced or dead-letter after ${MAX_SYNC_ATTEMPTS} attempts).`,
-        )
-        return
-      }
-
-      await syncEntriesToAzure({
-        entries: retryable,
-        sessions: [session],
-        endpointUrl: settings.azureEndpointUrl,
-        apiKey: settings.azureApiKey,
-      })
-      await markEntriesSynced(retryable.map((entry) => entry.id))
-      setStatusMessage('Session synced successfully.')
-      setEntries(await getEntriesBySessionId(id))
-    } catch (error) {
-      const retryable = await getRetryableUnsyncedEntriesBySessionId(session.id)
-      await markEntriesSyncFailed(
-        retryable.map((entry) => entry.id),
-        error.message || 'Session sync failed',
-      )
-      setStatusMessage(error.message || 'Session sync failed.')
-      setEntries(await getEntriesBySessionId(id))
-    } finally {
-      setSyncing(false)
-    }
-  }
-
-  async function handleRetryDeadLetters() {
-    const deadLetters = await getDeadLetterEntriesBySessionId(session.id)
-    if (deadLetters.length === 0) {
-      setStatusMessage('No dead-letter entries in this session.')
-      return
-    }
-
-    const resetCount = await resetEntriesForRetry(deadLetters.map((entry) => entry.id))
-    setStatusMessage(`Reset ${resetCount} dead-letter entries to pending.`)
-    setEntries(await getEntriesBySessionId(id))
-  }
-
-  async function handleRetryAndSyncNow() {
-    const deadLetters = await getDeadLetterEntriesBySessionId(session.id)
-    if (deadLetters.length > 0) {
-      await resetEntriesForRetry(deadLetters.map((entry) => entry.id))
-      setStatusMessage(`Reset ${deadLetters.length} dead-letter entries, starting sync…`)
-      setEntries(await getEntriesBySessionId(id))
-    }
-
-    await handleSync()
-  }
-
   async function handleAttachPlannedRoute(routeId) {
     const updated = await setSessionPlannedRoute(id, routeId)
     if (!updated) {
@@ -214,20 +142,6 @@ export default function SessionDetailPage() {
           >
             Export JSON
           </button>
-          <SyncActionButtons
-            syncing={syncing}
-            canSync={canSync}
-            onRetryDeadLetters={handleRetryDeadLetters}
-            onRetryAndSync={handleRetryAndSyncNow}
-            onSync={handleSync}
-            retryLabel="Retry dead-letter"
-            retryAndSyncLabel="Retry + Sync now"
-            retryAndSyncBusyLabel="Retry+Sync…"
-            syncLabel="Sync to Azure"
-            syncBusyLabel="Syncing…"
-            className="contents"
-            buttonClassName="w-full sm:w-auto"
-          />
           <button
             type="button"
             disabled={sessionPath.length === 0 && plannedRoutePoints.length === 0}
@@ -288,7 +202,6 @@ export default function SessionDetailPage() {
           </p>
         </div>
       </div>
-      {statusMessage ? <p className="mb-4 text-sm text-slate-300">{statusMessage}</p> : null}
 
       {showPath ? (
         <div className="mb-4 rounded-xl border border-slate-700 bg-slate-900 p-3">
@@ -346,7 +259,6 @@ export default function SessionDetailPage() {
                   {provider}
                 </th>
               ))}
-              <th className="px-3 py-2">Sync</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
@@ -365,11 +277,6 @@ export default function SessionDetailPage() {
                       <TrafficLevelBadge level={levels[provider]} />
                     </td>
                   ))}
-                  <td className="px-3 py-2">
-                    {entry.synced
-                      ? 'synced'
-                      : `${entry.syncStatus || 'pending'} (${entry.syncAttempts || 0})`}
-                  </td>
                 </tr>
               )
             })}

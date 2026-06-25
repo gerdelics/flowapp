@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useTheme } from '../../hooks/useTheme'
+import { useAuth } from '../../hooks/useAuth'
+import { useConnectionStatus } from '../../hooks/useConnectionStatus'
 import RecordingPage from '../../pages/RecordingPage'
 
 const links = [
   { to: '/', label: 'Recording' },
   { to: '/sessions', label: 'Sessions' },
   { to: '/routes', label: 'Routes' },
+  { to: '/pois', label: 'POIs' },
   { to: '/settings', label: 'Settings' },
 ]
 
@@ -33,9 +36,42 @@ function NavItems({ onNavigate, className = 'gap-2 md:flex' }) {
   )
 }
 
+function SyncIndicator({ online, firebaseConnected, pendingWrites }) {
+  const offline = !online || !firebaseConnected
+  const label = offline
+    ? pendingWrites > 0
+      ? `Offline · ${pendingWrites} pending`
+      : 'Offline'
+    : pendingWrites > 0
+      ? `Syncing · ${pendingWrites}`
+      : 'Synced'
+  const tone = offline
+    ? 'border-amber-500/40 bg-amber-950/30 text-amber-300'
+    : pendingWrites > 0
+      ? 'border-cyan-500/40 bg-cyan-950/30 text-cyan-300'
+      : 'border-emerald-500/40 bg-emerald-950/30 text-emerald-300'
+
+  return (
+    <span
+      className={`hidden items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium sm:inline-flex ${tone}`}
+      title={offline ? 'Changes are saved locally and will sync when back online.' : 'All changes synced.'}
+    >
+      <span
+        className={`h-1.5 w-1.5 rounded-full ${
+          offline ? 'bg-amber-400' : pendingWrites > 0 ? 'bg-cyan-400' : 'bg-emerald-400'
+        }`}
+        aria-hidden="true"
+      />
+      {label}
+    </span>
+  )
+}
+
 export default function AppLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { isDark, toggleTheme } = useTheme()
+  const { logout } = useAuth()
+  const { online, firebaseConnected, pendingWrites } = useConnectionStatus()
   const location = useLocation()
   const isRecordingRoute = location.pathname === '/'
 
@@ -55,6 +91,12 @@ export default function AppLayout() {
           </div>
 
           <div className="flex items-center gap-2">
+            <SyncIndicator
+              online={online}
+              firebaseConnected={firebaseConnected}
+              pendingWrites={pendingWrites}
+            />
+
             <button
               type="button"
               onClick={toggleTheme}
@@ -65,6 +107,15 @@ export default function AppLayout() {
               <span className="text-base leading-none" aria-hidden="true">
                 {isDark ? '☀️' : '🌙'}
               </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={logout}
+              className="inline-flex items-center justify-center rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 hover:border-red-500"
+              title="Sign out"
+            >
+              Sign out
             </button>
 
             <button

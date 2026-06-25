@@ -1,8 +1,27 @@
-import Dexie from 'dexie'
+import {
+  ref as dbRef,
+  get,
+  onValue,
+  query,
+  orderByChild,
+  equalTo,
+} from 'firebase/database'
 import { v4 as uuidv4 } from 'uuid'
+import { db, auth } from '../firebase'
+import { writeThrough } from './offlineQueue'
 import { getDefaultProviderIconUrl } from '../utils/providerIconDefaults'
 
-export const MAX_SYNC_ATTEMPTS = 5
+// ---------------------------------------------------------------------------
+// Firebase Realtime Database data layer.
+//
+// Data tree (shared team pool; every record is owned by its creator):
+//   /sessions/{id}, /entries/{id}, /routes/{id}   — visible to all authed users
+//   /users/{uid}/settings                          — per-user
+//
+// All mutating writes go through `writeThrough` (durable offline outbox). Hot
+// paths (heartbeat, path autosave, addEntry) are read-free so recording stays
+// instant offline. RTDB drops null/empty values, so reads are normalized.
+// ---------------------------------------------------------------------------
 
 const DEFAULT_PROVIDERS = [
   {
@@ -43,19 +62,20 @@ const DEFAULT_PROVIDERS = [
 ]
 
 const DEFAULT_SETTINGS = {
-  id: 'singleton',
   observerName: 'Observer',
   sampleIntervalSec: 30,
   mapZoomLevel: 14,
   providers: DEFAULT_PROVIDERS,
-  azureEndpointUrl: '',
-  azureApiKey: '',
   manualBeepEnabled: true,
   recordingWarningLeadSec: 5,
   warningVibrationEnabled: true,
   warningSoundEnabled: false,
   recordedPathColor: '#e002c3',
   plannedRoutePathColor: '#ebfc01',
+}
+
+function currentUid() {
+  return auth.currentUser?.uid || null
 }
 
 function normalizeHexColor(color, fallback) {
@@ -77,9 +97,10 @@ function normalizeHexColor(color, fallback) {
 function withSettingsDefaults(settings) {
   const base = settings || {}
 
-  const providers = (base.providers || []).map((provider) => {
+  const providers = (base.providers || DEFAULT_SETTINGS.providers).map((provider) => {
     const fallback = DEFAULT_PROVIDERS.find((item) => item.name === provider.name)
-    const isLegacyLocalIcon = typeof provider.iconUrl === 'string' && provider.iconUrl.startsWith('/icons/')
+    const isLegacyLocalIcon =
+      typeof provider.iconUrl === 'string' && provider.iconUrl.startsWith('/icons/')
     return {
       ...provider,
       iconUrl: !provider.iconUrl || isLegacyLocalIcon ? fallback?.iconUrl || '' : provider.iconUrl,
@@ -121,94 +142,358 @@ function withSettingsDefaults(settings) {
   }
 }
 
-class TrafficMonitorDb extends Dexie {
-  constructor() {
-    super('trafficMonitorDb')
-    this.version(1).stores({
-      sessions: 'id, startTime, endTime',
-      entries: 'id, sessionId, timestamp, synced',
-      settings: 'id',
-    })
+// --- Read normalizers (RTDB omits null/empty values) -----------------------
 
-    this.version(2)
-      .stores({
-        sessions: 'id, startTime, endTime',
-        entries:
-          'id, sessionId, timestamp, synced, syncStatus, syncAttempts, lastSyncAt',
-        settings: 'id',
-      })
-      .upgrade(async (tx) => {
-        await tx
-          .table('entries')
-          .toCollection()
-          .modify((entry) => {
-            const synced = Boolean(entry.synced)
-            entry.syncStatus = entry.syncStatus || (synced ? 'synced' : 'pending')
-            entry.syncAttempts = entry.syncAttempts || 0
-            entry.lastSyncError = entry.lastSyncError || null
-            entry.lastSyncAt = entry.lastSyncAt || null
-            entry.lastSyncAttemptAt = entry.lastSyncAttemptAt || null
-          })
-      })
-
-    this.version(3).stores({
-      sessions: 'id, startTime, endTime',
-      entries: 'id, sessionId, timestamp, synced, syncStatus, syncAttempts, lastSyncAt',
-      settings: 'id',
-      routes: 'id, city, name, createdAt',
-    })
+function normalizeSession(id, raw) {
+  if (!raw) {
+    return null
+  }
+  return {
+    id,
+    owner: raw.owner ?? null,
+    name: raw.name || '',
+    startTime: raw.startTime || null,
+    endTime: raw.endTime ?? null,
+    pausedAt: raw.pausedAt ?? null,
+    lastHeartbeatAt: raw.lastHeartbeatAt ?? null,
+    notes: raw.notes || '',
+    path: Array.isArray(raw.path) ? raw.path : [],
+    plannedRouteId: raw.plannedRouteId ?? null,
+    plannedRouteName: raw.plannedRouteName ?? null,
+    plannedRouteCity: raw.plannedRouteCity ?? null,
+    plannedRoutePoints: Array.isArray(raw.plannedRoutePoints) ? raw.plannedRoutePoints : [],
   }
 }
 
-export const db = new TrafficMonitorDb()
+function normalizeEntry(id, raw) {
+  if (!raw) {
+    return null
+  }
+  return {
+    id,
+    owner: raw.owner ?? null,
+    sessionId: raw.sessionId,
+    timestamp: raw.timestamp,
+    location: raw.location ?? null,
+    providers: Array.isArray(raw.providers) ? raw.providers : [],
+    observerAssessment: raw.observerAssessment || 'medium',
+  }
+}
+
+function normalizeRoute(id, raw) {
+  if (!raw) {
+    return null
+  }
+  return {
+    id,
+    owner: raw.owner ?? null,
+    city: raw.city || '',
+    name: raw.name || '',
+    points: Array.isArray(raw.points) ? raw.points : [],
+    createdAt: raw.createdAt || null,
+  }
+}
+
+function normalizePlannedRoutePoints(points) {
+  if (!Array.isArray(points)) {
+    return []
+  }
+  return points.filter(
+    (point) => typeof point?.lat === 'number' && typeof point?.lon === 'number',
+  )
+}
+
+// --- Settings (per-user) ---------------------------------------------------
 
 export async function ensureSettings() {
-  const existing = await db.settings.get('singleton')
+  const uid = currentUid()
+  if (!uid) {
+    return withSettingsDefaults(null)
+  }
+
+  const snap = await get(dbRef(db, `users/${uid}/settings`))
+  const existing = snap.val()
+
   if (existing) {
     const normalized = withSettingsDefaults(existing)
     if (JSON.stringify(existing) !== JSON.stringify(normalized)) {
-      await db.settings.put(normalized)
+      writeThrough('set', `users/${uid}/settings`, normalized)
     }
     return normalized
   }
 
-  await db.settings.put(DEFAULT_SETTINGS)
-  return DEFAULT_SETTINGS
+  const defaults = withSettingsDefaults(null)
+  writeThrough('set', `users/${uid}/settings`, defaults)
+  return defaults
 }
 
 export async function getSettings() {
   return ensureSettings()
 }
 
-function normalizeImportedId(preferredId, usedIds) {
-  if (preferredId && !usedIds.has(preferredId)) {
-    usedIds.add(preferredId)
-    return preferredId
+export async function updateSettings(patch) {
+  const uid = currentUid()
+  const current = await ensureSettings()
+  const next = withSettingsDefaults({ ...current, ...patch })
+  if (uid) {
+    writeThrough('set', `users/${uid}/settings`, next)
   }
-
-  const generatedId = uuidv4()
-  usedIds.add(generatedId)
-  return generatedId
+  return next
 }
 
-function normalizeImportedEntry(entry, sessionId, usedIds) {
-  const nextId = normalizeImportedId(entry?.id, usedIds)
+export function subscribeSettings(callback) {
+  const uid = currentUid()
+  if (!uid) {
+    callback(withSettingsDefaults(null))
+    return () => {}
+  }
+  return onValue(dbRef(db, `users/${uid}/settings`), (snap) => {
+    callback(withSettingsDefaults(snap.val()))
+  })
+}
 
-  return {
-    ...entry,
-    id: nextId,
+// --- Sessions --------------------------------------------------------------
+
+export async function startSession(name) {
+  const now = new Date().toISOString()
+  const id = uuidv4()
+  const session = {
+    id,
+    owner: currentUid(),
+    name: name?.trim() || new Date().toLocaleString(),
+    startTime: now,
+    endTime: null,
+    pausedAt: null,
+    lastHeartbeatAt: now,
+    notes: '',
+    path: [],
+  }
+  writeThrough('set', `sessions/${id}`, session)
+  return session
+}
+
+// Liveness ping on a short interval while recording. Read-free partial update.
+export function touchSessionHeartbeat(sessionId) {
+  if (!sessionId) {
+    return null
+  }
+  writeThrough('update', `sessions/${sessionId}`, { lastHeartbeatAt: new Date().toISOString() })
+  return sessionId
+}
+
+// Path autosave (10s loop). Read-free so it never blocks offline.
+export function setSessionPath(sessionId, path) {
+  if (!sessionId) {
+    return null
+  }
+  const safePath = Array.isArray(path) ? path : []
+  writeThrough('update', `sessions/${sessionId}`, { path: safePath })
+  return { id: sessionId, path: safePath }
+}
+
+export function stopSession(sessionId, current = null) {
+  if (!sessionId) {
+    return null
+  }
+  const patch = { endTime: new Date().toISOString(), pausedAt: null }
+  writeThrough('update', `sessions/${sessionId}`, patch)
+  return current ? { ...current, ...patch } : { id: sessionId, ...patch }
+}
+
+export function pauseSession(sessionId, current = null) {
+  if (!sessionId || current?.endTime) {
+    return current
+  }
+  if (current?.pausedAt) {
+    return current
+  }
+  const patch = { pausedAt: new Date().toISOString() }
+  writeThrough('update', `sessions/${sessionId}`, patch)
+  return current ? { ...current, ...patch } : { id: sessionId, ...patch }
+}
+
+export function resumeSession(sessionId, current = null) {
+  if (!sessionId || current?.endTime) {
+    return current
+  }
+  if (current && !current.pausedAt) {
+    return current
+  }
+  const patch = { pausedAt: null }
+  writeThrough('update', `sessions/${sessionId}`, patch)
+  return current ? { ...current, ...patch } : { id: sessionId, ...patch }
+}
+
+export function renameSession(sessionId, name, current = null) {
+  if (!sessionId) {
+    return null
+  }
+  const trimmed = name?.trim()
+  if (!trimmed) {
+    return current
+  }
+  const patch = { name: trimmed }
+  writeThrough('update', `sessions/${sessionId}`, patch)
+  return current ? { ...current, ...patch } : { id: sessionId, ...patch }
+}
+
+export async function setSessionPlannedRoute(sessionId, routeId, current = null) {
+  if (!sessionId) {
+    return null
+  }
+
+  const base = current || (await getSessionById(sessionId))
+  if (!base) {
+    return null
+  }
+
+  if (!routeId) {
+    const patch = {
+      plannedRouteId: null,
+      plannedRouteName: null,
+      plannedRouteCity: null,
+      plannedRoutePoints: [],
+    }
+    writeThrough('update', `sessions/${sessionId}`, patch)
+    return { ...base, ...patch }
+  }
+
+  const route = await getRouteById(routeId)
+  if (!route) {
+    return base
+  }
+
+  const patch = {
+    plannedRouteId: route.id,
+    plannedRouteName: route.name || null,
+    plannedRouteCity: route.city || null,
+    plannedRoutePoints: normalizePlannedRoutePoints(route.points),
+  }
+  writeThrough('update', `sessions/${sessionId}`, patch)
+  return { ...base, ...patch }
+}
+
+export async function getActiveSession() {
+  const uid = currentUid()
+  const snap = await get(dbRef(db, 'sessions'))
+  const data = snap.val() || {}
+  const list = Object.entries(data).map(([id, raw]) => normalizeSession(id, raw))
+  return list.find((session) => session.owner === uid && !session.endTime) || null
+}
+
+export async function getSessionById(sessionId) {
+  const snap = await get(dbRef(db, `sessions/${sessionId}`))
+  return normalizeSession(sessionId, snap.val())
+}
+
+// Live, sorted sessions list with per-session entry counts (shared team pool).
+export function subscribeSessionsWithCounts(callback) {
+  let sessions = []
+  let counts = {}
+
+  const recompute = () => {
+    callback(sessions.map((session) => ({ ...session, entryCount: counts[session.id] || 0 })))
+  }
+
+  const unsubSessions = onValue(dbRef(db, 'sessions'), (snap) => {
+    const data = snap.val() || {}
+    sessions = Object.entries(data)
+      .map(([id, raw]) => normalizeSession(id, raw))
+      .sort((a, b) => (b.startTime || '').localeCompare(a.startTime || ''))
+    recompute()
+  })
+
+  const unsubEntries = onValue(dbRef(db, 'entries'), (snap) => {
+    const data = snap.val() || {}
+    const next = {}
+    Object.values(data).forEach((entry) => {
+      if (entry?.sessionId) {
+        next[entry.sessionId] = (next[entry.sessionId] || 0) + 1
+      }
+    })
+    counts = next
+    recompute()
+  })
+
+  return () => {
+    unsubSessions()
+    unsubEntries()
+  }
+}
+
+export async function deleteSession(sessionId) {
+  const entries = await getEntriesBySessionId(sessionId)
+  writeThrough('remove', `sessions/${sessionId}`)
+  entries.forEach((entry) => writeThrough('remove', `entries/${entry.id}`))
+}
+
+// --- Entries ---------------------------------------------------------------
+
+export function addEntry({ sessionId, timestamp, location, providers, observerAssessment }) {
+  const id = uuidv4()
+  const entry = {
+    id,
+    owner: currentUid(),
     sessionId,
-    location: entry?.location || null,
-    providers: Array.isArray(entry?.providers) ? entry.providers : [],
-    observerAssessment: entry?.observerAssessment || 'medium',
-    synced: Boolean(entry?.synced),
-    syncStatus: entry?.syncStatus || (entry?.synced ? 'synced' : 'pending'),
-    syncAttempts: Number.isFinite(entry?.syncAttempts) ? entry.syncAttempts : 0,
-    lastSyncError: entry?.lastSyncError ?? null,
-    lastSyncAt: entry?.lastSyncAt ?? null,
-    lastSyncAttemptAt: entry?.lastSyncAttemptAt ?? null,
+    timestamp: timestamp || new Date().toISOString(),
+    location: location || null,
+    providers: Array.isArray(providers) ? providers : [],
+    observerAssessment: observerAssessment || 'medium',
   }
+  writeThrough('set', `entries/${id}`, entry)
+  return entry
 }
+
+export async function getEntriesBySessionId(sessionId) {
+  const entriesQuery = query(dbRef(db, 'entries'), orderByChild('sessionId'), equalTo(sessionId))
+  const snap = await get(entriesQuery)
+  const data = snap.val() || {}
+  return Object.entries(data)
+    .map(([id, raw]) => normalizeEntry(id, raw))
+    .sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''))
+}
+
+export async function getAllEntries() {
+  const snap = await get(dbRef(db, 'entries'))
+  const data = snap.val() || {}
+  return Object.entries(data)
+    .map(([id, raw]) => normalizeEntry(id, raw))
+    .sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''))
+}
+
+// --- Routes (shared) -------------------------------------------------------
+
+export async function saveRoute(route) {
+  const id = route.id || uuidv4()
+  const stored = {
+    id,
+    owner: route.owner ?? currentUid(),
+    city: route.city?.trim() || '',
+    name: route.name?.trim() || '',
+    points: Array.isArray(route.points) ? route.points : [],
+    createdAt: route.createdAt || new Date().toISOString(),
+  }
+  writeThrough('set', `routes/${id}`, stored)
+  return normalizeRoute(id, stored)
+}
+
+export async function getRouteById(routeId) {
+  const snap = await get(dbRef(db, `routes/${routeId}`))
+  return normalizeRoute(routeId, snap.val())
+}
+
+export async function deleteRoute(routeId) {
+  writeThrough('remove', `routes/${routeId}`)
+}
+
+export function subscribeRoutes(callback) {
+  return onValue(dbRef(db, 'routes'), (snap) => {
+    const data = snap.val() || {}
+    callback(Object.entries(data).map(([id, raw]) => normalizeRoute(id, raw)))
+  })
+}
+
+// --- Import / wipe ---------------------------------------------------------
 
 export async function importSessionArchive(archive) {
   const sourceSession = archive?.session
@@ -218,400 +503,80 @@ export async function importSessionArchive(archive) {
     throw new Error('Invalid session archive: missing session data.')
   }
 
-  const sessionId = sourceSession.id && !(await db.sessions.get(sourceSession.id))
-    ? sourceSession.id
-    : uuidv4()
-
-  const entryIds = sourceEntries
-    .map((entry) => entry?.id)
-    .filter((id) => typeof id === 'string' && id.length > 0)
-
-  const existingEntries = entryIds.length ? await db.entries.where('id').anyOf(entryIds).toArray() : []
-  const usedIds = new Set([
-    sessionId,
-    ...existingEntries.map((entry) => entry.id),
-  ])
+  const uid = currentUid()
+  const existing = sourceSession.id ? await getSessionById(sourceSession.id) : null
+  const sessionId = sourceSession.id && !existing ? sourceSession.id : uuidv4()
+  // If we had to regenerate the session id, regenerate entry ids too so a
+  // re-import never moves the original session's entries.
+  const regenerateEntryIds = sessionId !== sourceSession.id
 
   const importedSession = {
-    ...sourceSession,
     id: sessionId,
+    owner: uid,
+    name: sourceSession.name || new Date().toLocaleString(),
+    startTime: sourceSession.startTime || new Date().toISOString(),
+    endTime: sourceSession.endTime ?? new Date().toISOString(),
+    pausedAt: null,
+    lastHeartbeatAt: sourceSession.lastHeartbeatAt ?? null,
+    notes: sourceSession.notes || '',
     path: Array.isArray(sourceSession.path) ? sourceSession.path : [],
+    plannedRouteId: sourceSession.plannedRouteId ?? null,
+    plannedRouteName: sourceSession.plannedRouteName ?? null,
+    plannedRouteCity: sourceSession.plannedRouteCity ?? null,
+    plannedRoutePoints: Array.isArray(sourceSession.plannedRoutePoints)
+      ? sourceSession.plannedRoutePoints
+      : [],
   }
+  writeThrough('set', `sessions/${sessionId}`, importedSession)
 
   let importedEntryCount = 0
-
-  await db.transaction('rw', db.sessions, db.entries, async () => {
-    await db.sessions.put(importedSession)
-
-    for (const entry of sourceEntries) {
-      if (!entry || typeof entry !== 'object') {
-        continue
-      }
-
-      const normalizedEntry = normalizeImportedEntry(entry, sessionId, usedIds)
-      await db.entries.put(normalizedEntry)
-      importedEntryCount += 1
+  for (const entry of sourceEntries) {
+    if (!entry || typeof entry !== 'object') {
+      continue
     }
-  })
-
-  return {
-    session: importedSession,
-    importedEntryCount,
-  }
-}
-
-export async function updateSettings(patch) {
-  const current = await ensureSettings()
-  const next = withSettingsDefaults({ ...current, ...patch, id: 'singleton' })
-  await db.settings.put(next)
-  return next
-}
-
-export async function startSession(name) {
-  const now = new Date().toISOString()
-  const session = {
-    id: uuidv4(),
-    name: name?.trim() || new Date().toLocaleString(),
-    startTime: now,
-    endTime: null,
-    pausedAt: null,
-    lastHeartbeatAt: now,
-    notes: '',
-    path: [],
-  }
-  await db.sessions.put(session)
-  return session
-}
-
-// Liveness ping written on a short interval while a session is active. It lets
-// crash recovery tell how long ago the recording was last alive. The field is
-// not indexed, so this is a cheap partial update with no schema migration.
-export async function touchSessionHeartbeat(sessionId) {
-  const session = await db.sessions.get(sessionId)
-  if (!session || session.endTime) {
-    return null
-  }
-  await db.sessions.update(sessionId, { lastHeartbeatAt: new Date().toISOString() })
-  return sessionId
-}
-
-export async function setSessionPath(sessionId, path) {
-  const session = await db.sessions.get(sessionId)
-  if (!session) {
-    return null
-  }
-
-  const updated = {
-    ...session,
-    path: Array.isArray(path) ? path : [],
-  }
-  await db.sessions.put(updated)
-  return updated
-}
-
-export async function stopSession(sessionId) {
-  const session = await db.sessions.get(sessionId)
-  if (!session) {
-    return null
-  }
-
-  const updated = {
-    ...session,
-    endTime: new Date().toISOString(),
-    pausedAt: null,
-  }
-  await db.sessions.put(updated)
-  return updated
-}
-
-export async function pauseSession(sessionId) {
-  const session = await db.sessions.get(sessionId)
-  if (!session || session.endTime) {
-    return null
-  }
-
-  if (session.pausedAt) {
-    return session
-  }
-
-  const updated = {
-    ...session,
-    pausedAt: new Date().toISOString(),
-  }
-  await db.sessions.put(updated)
-  return updated
-}
-
-export async function resumeSession(sessionId) {
-  const session = await db.sessions.get(sessionId)
-  if (!session || session.endTime) {
-    return null
-  }
-
-  if (!session.pausedAt) {
-    return session
-  }
-
-  const updated = {
-    ...session,
-    pausedAt: null,
-  }
-  await db.sessions.put(updated)
-  return updated
-}
-
-export async function renameSession(sessionId, name) {
-  const session = await db.sessions.get(sessionId)
-  if (!session) {
-    return null
-  }
-
-  const trimmed = name?.trim()
-  if (!trimmed) {
-    return session
-  }
-
-  const updated = { ...session, name: trimmed }
-  await db.sessions.put(updated)
-  return updated
-}
-
-function normalizePlannedRoutePoints(points) {
-  if (!Array.isArray(points)) {
-    return []
-  }
-
-  return points.filter(
-    (point) => typeof point?.lat === 'number' && typeof point?.lon === 'number',
-  )
-}
-
-export async function setSessionPlannedRoute(sessionId, routeId) {
-  const session = await db.sessions.get(sessionId)
-  if (!session) {
-    return null
-  }
-
-  if (!routeId) {
-    const cleared = {
-      ...session,
-      plannedRouteId: null,
-      plannedRouteName: null,
-      plannedRouteCity: null,
-      plannedRoutePoints: [],
+    const entryId = regenerateEntryIds ? uuidv4() : entry.id || uuidv4()
+    const normalized = {
+      id: entryId,
+      owner: uid,
+      sessionId,
+      timestamp: entry.timestamp || new Date().toISOString(),
+      location: entry.location || null,
+      providers: Array.isArray(entry.providers) ? entry.providers : [],
+      observerAssessment: entry.observerAssessment || 'medium',
     }
-    await db.sessions.put(cleared)
-    return cleared
+    writeThrough('set', `entries/${entryId}`, normalized)
+    importedEntryCount += 1
   }
 
-  const route = await db.routes.get(routeId)
-  if (!route) {
-    return session
-  }
-
-  const updated = {
-    ...session,
-    plannedRouteId: route.id,
-    plannedRouteName: route.name || null,
-    plannedRouteCity: route.city || null,
-    plannedRoutePoints: normalizePlannedRoutePoints(route.points),
-  }
-
-  await db.sessions.put(updated)
-  return updated
+  return { session: importedSession, importedEntryCount }
 }
 
-export async function getActiveSession() {
-  const sessions = await db.sessions.toArray()
-  return sessions.find((session) => session.endTime === null) || null
-}
-
-export async function addEntry({
-  sessionId,
-  timestamp,
-  location,
-  providers,
-  observerAssessment,
-}) {
-  const entry = {
-    id: uuidv4(),
-    sessionId,
-    timestamp: timestamp || new Date().toISOString(),
-    location: location || null,
-    providers,
-    observerAssessment,
-    synced: false,
-    syncStatus: 'pending',
-    syncAttempts: 0,
-    lastSyncError: null,
-    lastSyncAt: null,
-    lastSyncAttemptAt: null,
-  }
-  await db.entries.put(entry)
-  return entry
-}
-
-export async function listSessionsWithCounts() {
-  const sessions = await db.sessions.orderBy('startTime').reverse().toArray()
-  if (sessions.length === 0) {
-    return []
-  }
-
-  const entries = await db.entries.toArray()
-  const counts = entries.reduce((acc, entry) => {
-    const attempts = entry.syncAttempts || 0
-    const computedStatus = entry.syncStatus || (entry.synced ? 'synced' : 'pending')
-    const isDeadLetter = computedStatus === 'dead-letter' || attempts >= MAX_SYNC_ATTEMPTS
-
-    acc[entry.sessionId] = (acc[entry.sessionId] || 0) + 1
-    if (!entry.synced) {
-      acc[`${entry.sessionId}:unsynced`] = (acc[`${entry.sessionId}:unsynced`] || 0) + 1
-    }
-    if (computedStatus === 'failed') {
-      acc[`${entry.sessionId}:failed`] = (acc[`${entry.sessionId}:failed`] || 0) + 1
-    }
-    if (isDeadLetter) {
-      acc[`${entry.sessionId}:dead`] = (acc[`${entry.sessionId}:dead`] || 0) + 1
-    }
-    return acc
-  }, {})
-
-  return sessions.map((session) => ({
-    ...session,
-    entryCount: counts[session.id] || 0,
-    unsyncedCount: counts[`${session.id}:unsynced`] || 0,
-    failedCount: counts[`${session.id}:failed`] || 0,
-    deadLetterCount: counts[`${session.id}:dead`] || 0,
-  }))
-}
-
-export async function getSessionById(sessionId) {
-  return db.sessions.get(sessionId)
-}
-
-export async function getEntriesBySessionId(sessionId) {
-  return db.entries.where('sessionId').equals(sessionId).sortBy('timestamp')
-}
-
-export async function getAllEntries() {
-  return db.entries.orderBy('timestamp').toArray()
-}
-
-async function getUnsyncedEntries() {
-  return db.entries.where('synced').equals(false).toArray()
-}
-
-export async function getRetryableUnsyncedEntries() {
-  const entries = await getUnsyncedEntries()
-  return entries.filter((entry) => (entry.syncAttempts || 0) < MAX_SYNC_ATTEMPTS)
-}
-
-export async function getRetryableUnsyncedEntriesBySessionId(sessionId) {
-  const entries = await db.entries.where('sessionId').equals(sessionId).toArray()
-  return entries.filter(
-    (entry) => !entry.synced && (entry.syncAttempts || 0) < MAX_SYNC_ATTEMPTS,
-  )
-}
-
-export async function getDeadLetterEntries() {
-  const entries = await getUnsyncedEntries()
-  return entries.filter((entry) => (entry.syncAttempts || 0) >= MAX_SYNC_ATTEMPTS)
-}
-
-export async function getDeadLetterEntriesBySessionId(sessionId) {
-  const entries = await db.entries.where('sessionId').equals(sessionId).toArray()
-  return entries.filter((entry) => (entry.syncAttempts || 0) >= MAX_SYNC_ATTEMPTS)
-}
-
-export async function resetEntriesForRetry(entryIds) {
-  if (!entryIds?.length) {
-    return 0
-  }
-
-  let updated = 0
-  await db.transaction('rw', db.entries, async () => {
-    for (const id of entryIds) {
-      const entry = await db.entries.get(id)
-      if (!entry) {
-        continue
-      }
-
-      await db.entries.put({
-        ...entry,
-        synced: false,
-        syncStatus: 'pending',
-        syncAttempts: 0,
-        lastSyncError: null,
-      })
-      updated += 1
-    }
-  })
-
-  return updated
-}
-
-export async function markEntriesSynced(entryIds) {
-  if (!entryIds?.length) {
-    return
-  }
-
-  await db.transaction('rw', db.entries, async () => {
-    for (const id of entryIds) {
-      const entry = await db.entries.get(id)
-      if (entry) {
-        await db.entries.put({
-          ...entry,
-          synced: true,
-          syncStatus: 'synced',
-          lastSyncError: null,
-          lastSyncAt: new Date().toISOString(),
-          lastSyncAttemptAt: new Date().toISOString(),
-        })
-      }
-    }
-  })
-}
-
-export async function markEntriesSyncFailed(entryIds, errorMessage) {
-  if (!entryIds?.length) {
-    return
-  }
-
-  await db.transaction('rw', db.entries, async () => {
-    for (const id of entryIds) {
-      const entry = await db.entries.get(id)
-      if (!entry) {
-        continue
-      }
-
-      const nextAttempts = (entry.syncAttempts || 0) + 1
-      const deadLetter = nextAttempts >= MAX_SYNC_ATTEMPTS
-
-      await db.entries.put({
-        ...entry,
-        synced: false,
-        syncAttempts: nextAttempts,
-        syncStatus: deadLetter ? 'dead-letter' : 'failed',
-        lastSyncError: errorMessage || 'Unknown sync error',
-        lastSyncAttemptAt: new Date().toISOString(),
-      })
-    }
-  })
-}
-
-export async function deleteSession(sessionId) {
-  await db.transaction('rw', db.sessions, db.entries, async () => {
-    await db.sessions.delete(sessionId)
-    const entries = await db.entries.where('sessionId').equals(sessionId).toArray()
-    await Promise.all(entries.map((entry) => db.entries.delete(entry.id)))
-  })
-}
-
+// Removes the current user's own sessions, entries, and settings.
 export async function clearAllData() {
-  await db.transaction('rw', db.sessions, db.entries, db.settings, async () => {
-    await db.sessions.clear()
-    await db.entries.clear()
-    await db.settings.clear()
+  const uid = currentUid()
+
+  const [sessionsSnap, entriesSnap] = await Promise.all([
+    get(dbRef(db, 'sessions')),
+    get(dbRef(db, 'entries')),
+  ])
+
+  const sessions = sessionsSnap.val() || {}
+  Object.entries(sessions).forEach(([id, raw]) => {
+    if (raw?.owner === uid) {
+      writeThrough('remove', `sessions/${id}`)
+    }
   })
+
+  const entries = entriesSnap.val() || {}
+  Object.entries(entries).forEach(([id, raw]) => {
+    if (raw?.owner === uid) {
+      writeThrough('remove', `entries/${id}`)
+    }
+  })
+
+  if (uid) {
+    writeThrough('remove', `users/${uid}/settings`)
+  }
+
   await ensureSettings()
 }

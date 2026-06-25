@@ -21,11 +21,6 @@ function SessionCard({
   onExport,
   onExportJson,
   onRename,
-  onSync,
-  onRetryDeadLetters,
-  onRetryAndSyncNow,
-  syncBusy,
-  syncDisabled,
 }) {
   const [nameDraft, setNameDraft] = useState(session.name || '')
   const [showNameEditor, setShowNameEditor] = useState(!session.name?.trim())
@@ -63,20 +58,11 @@ function SessionCard({
           Avg speed: {formatAverageSpeedKmh(getSessionAverageSpeedKmh(session))}
         </p>
       </div>
-      <p className="mt-1 text-xs text-slate-400">
-        Unsynced: {session.unsyncedCount ?? 0} • Failed: {session.failedCount ?? 0} • Dead-letter:{' '}
-        {session.deadLetterCount ?? 0}
-      </p>
       <SessionActionButtons
         session={session}
-        syncBusy={syncBusy}
-        syncDisabled={syncDisabled}
         onOpen={onOpen}
         onExport={onExport}
         onExportJson={onExportJson}
-        onSync={onSync}
-        onRetryDeadLetters={onRetryDeadLetters}
-        onRetryAndSyncNow={onRetryAndSyncNow}
         onDelete={onDelete}
       />
     </article>

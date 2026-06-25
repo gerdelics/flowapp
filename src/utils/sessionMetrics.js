@@ -6,7 +6,7 @@ function toRad(value) {
   return (value * Math.PI) / 180
 }
 
-function haversineKm(pointA, pointB) {
+export function haversineKm(pointA, pointB) {
   const lat1 = toNumber(pointA?.lat)
   const lon1 = toNumber(pointA?.lon)
   const lat2 = toNumber(pointB?.lat)

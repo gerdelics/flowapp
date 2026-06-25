@@ -7,7 +7,7 @@ import {
   RouteIdentityFields,
   RouteListCard,
 } from '../components'
-import { db } from '../db'
+import { deleteRoute, getRouteById, saveRoute, subscribeRoutes } from '../db'
 import { filterRoutesByCity, getRouteCities } from '../hooks/useSavedRoutes'
 import { useSettings } from '../hooks/useSettings'
 import { parseGpx } from '../utils/gpxParser'
@@ -35,16 +35,12 @@ export default function RoutesPage() {
 
   const fileInputRef = useRef(null)
 
-  function loadRoutes() {
-    db.routes
-      .orderBy('createdAt')
-      .reverse()
-      .toArray()
-      .then(setRoutes)
-  }
-
   useEffect(() => {
-    loadRoutes()
+    const unsubscribe = subscribeRoutes((list) => {
+      const sorted = [...list].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+      setRoutes(sorted)
+    })
+    return unsubscribe
   }, [])
 
   const routeCities = useMemo(() => getRouteCities(routes), [routes])
@@ -105,7 +101,7 @@ export default function RoutesPage() {
         createdAt: new Date().toISOString(),
       }
 
-      await db.routes.put(route)
+      await saveRoute(route)
       setCity('')
       setName('')
       setGpxFile(null)
@@ -114,7 +110,6 @@ export default function RoutesPage() {
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
-      await loadRoutes()
     } catch (err) {
       setGpxError(err.message || 'Error while processing the GPX file.')
     } finally {
@@ -123,11 +118,10 @@ export default function RoutesPage() {
   }
 
   async function handleDelete(id) {
-    await db.routes.delete(id)
+    await deleteRoute(id)
     if (selectedRoute?.id === id) {
       setSelectedRoute(null)
     }
-    await loadRoutes()
   }
 
   function closeAddModal() {
@@ -157,7 +151,7 @@ export default function RoutesPage() {
     setEditSaving(true)
     setEditError('')
     try {
-      const existing = await db.routes.get(editingRouteId)
+      const existing = await getRouteById(editingRouteId)
       if (!existing) {
         setEditError('Route not found.')
         return
@@ -169,7 +163,7 @@ export default function RoutesPage() {
         name: editName.trim(),
       }
 
-      await db.routes.put(updated)
+      await saveRoute(updated)
 
       if (selectedRoute?.id === editingRouteId) {
         setSelectedRoute(updated)
@@ -179,7 +173,6 @@ export default function RoutesPage() {
         setCityFilter('')
       }
 
-      await loadRoutes()
       cancelEdit()
     } catch (error) {
       setEditError(error?.message || 'Failed to save.')

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ensureSettings, updateSettings } from '../db'
+import { ensureSettings, subscribeSettings, updateSettings } from '../db'
 import { getDefaultProviderIconUrl } from '../utils/providerIconDefaults'
 
 const DEBOUNCE_MS = 400
@@ -21,22 +21,17 @@ export function useSettings() {
   const pendingWritesRef = useRef(new Map())
 
   useEffect(() => {
-    let mounted = true
+    let unsubscribe = () => {}
 
-    async function load() {
-      setLoading(true)
-      const data = await ensureSettings()
-      if (mounted) {
+    // Persist defaults on first run, then keep settings live across devices.
+    ensureSettings().finally(() => {
+      unsubscribe = subscribeSettings((data) => {
         setSettings(data)
         setLoading(false)
-      }
-    }
+      })
+    })
 
-    load()
-
-    return () => {
-      mounted = false
-    }
+    return () => unsubscribe()
   }, [])
 
   const reload = useCallback(async () => {
@@ -110,12 +105,6 @@ export function useSettings() {
   const setPlannedRoutePathColor = useCallback(
     (plannedRoutePathColor) =>
       patchSettingsDebounced('plannedRoutePathColor', { plannedRoutePathColor }),
-    [patchSettingsDebounced],
-  )
-
-  const setAzureConfig = useCallback(
-    (azureEndpointUrl, azureApiKey) =>
-      patchSettingsDebounced('azureConfig', { azureEndpointUrl, azureApiKey }),
     [patchSettingsDebounced],
   )
 
@@ -231,7 +220,6 @@ export function useSettings() {
     toggleProvider,
     addProvider,
     deleteProvider,
-    setAzureConfig,
     setManualBeepEnabled,
     setRecordingWarningLeadSec,
     setWarningVibrationEnabled,

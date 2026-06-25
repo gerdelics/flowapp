@@ -3,9 +3,9 @@ import { IconAvatar, PanelSection, ProviderForm, Toggle } from '../components'
 import { OverlayModal } from '../components'
 import {
   clearAllData,
-  db,
   getAllEntries,
   importSessionArchive,
+  saveRoute,
   setSessionPlannedRoute,
 } from '../db'
 import { useGeolocation } from '../hooks/useGeolocation'
@@ -32,7 +32,6 @@ export default function SettingsPage() {
     deleteProvider,
     updateProvider,
     reorderProviders,
-    setAzureConfig,
     reload,
   } = useSettings()
   const geolocation = useGeolocation()
@@ -167,7 +166,7 @@ export default function SettingsPage() {
         createdAt: new Date().toISOString(),
       }
 
-      await db.routes.put(route)
+      await saveRoute(route)
 
       const imported = await importSessionArchive(archive)
       await setSessionPlannedRoute(imported.session.id, route.id)
@@ -535,27 +534,6 @@ export default function SettingsPage() {
         >
           + Add new provider
         </button>
-      </PanelSection>
-
-      <PanelSection title="Azure Sync Settings">
-        <label className="mt-3 block text-sm text-slate-300">
-          Endpoint URL
-          <input
-            type="text"
-            value={settings.azureEndpointUrl}
-            onChange={(e) => setAzureConfig(e.target.value, settings.azureApiKey)}
-            className="mt-1 w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2"
-          />
-        </label>
-        <label className="mt-3 block text-sm text-slate-300">
-          API key
-          <input
-            type="text"
-            value={settings.azureApiKey}
-            onChange={(e) => setAzureConfig(settings.azureEndpointUrl, e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-600 bg-slate-800 px-3 py-2"
-          />
-        </label>
       </PanelSection>
 
       <PanelSection title="Demo Data">
