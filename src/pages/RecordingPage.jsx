@@ -202,10 +202,13 @@ export default function RecordingPage({ isActive = true }) {
     [filterByCity, routeCityFilter],
   )
 
-  const selectedOverlayRouteName = useMemo(() => {
-    if (!selectedOverlayRouteId) return ''
-    return savedRoutes.find((route) => route.id === selectedOverlayRouteId)?.name || ''
+  const selectedOverlayRoute = useMemo(() => {
+    if (!selectedOverlayRouteId) return null
+    return savedRoutes.find((route) => route.id === selectedOverlayRouteId) || null
   }, [savedRoutes, selectedOverlayRouteId])
+
+  const selectedOverlayRouteName = selectedOverlayRoute?.name || ''
+  const selectedOverlayRouteLink = selectedOverlayRoute?.link || ''
 
   const handleMapZoomChange = useCallback(
     (nextZoom) => {
@@ -383,6 +386,7 @@ export default function RecordingPage({ isActive = true }) {
     selectedRouteName: selectedOverlayRouteName,
     onOpenRoutePicker: () => setRoutePickerOpen(true),
     onClearSelectedRoute: handleClearOverlayRoute,
+    driveLink: selectedOverlayRouteLink,
   }
 
   const startDisabled = startingSession || !sessionCityDraft

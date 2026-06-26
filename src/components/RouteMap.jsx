@@ -41,6 +41,7 @@ function RouteMap({
   onOpenRoutePicker,
   onClearSelectedRoute,
   onRefreshCurrentLocation,
+  driveLink,
   resetZoomLevel = 16,
   onZoomLevelChange,
   defaultZoom = 14,
@@ -447,6 +448,16 @@ function RouteMap({
     : `relative z-0 ${className || 'h-full w-full rounded-md'}`
 
   const hasSelectedRoute = Boolean(selectedRouteName)
+  const hasDriveLink = typeof driveLink === 'string' && driveLink.trim().length > 0
+
+  function handleDriveWithGoogle() {
+    if (!hasDriveLink) {
+      return
+    }
+    // Opening the maps directions link hands off to the device's Google Maps
+    // app (or browser), which starts turn-by-turn navigation.
+    window.open(driveLink.trim(), '_blank', 'noopener,noreferrer')
+  }
 
   return (
     <div className={wrapperClassName}>
@@ -524,6 +535,22 @@ function RouteMap({
                 </svg>
               </button>
             ) : null}
+
+            {hasDriveLink ? (
+              <button
+                type="button"
+                onClick={handleDriveWithGoogle}
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-500 px-3 text-white shadow-md backdrop-blur-sm transition hover:bg-emerald-400"
+                title="Drive with Google – open navigation"
+                aria-label="Drive with Google"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0">
+                  <polygon points="3 11 22 2 13 21 11 13 3 11" />
+                </svg>
+                <span className="text-xs font-semibold">Drive</span>
+              </button>
+            ) : null}
+
             {showRouteControl ? (
               <>
                 <button

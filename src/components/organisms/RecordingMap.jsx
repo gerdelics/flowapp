@@ -21,6 +21,7 @@ function RecordingMap({
   selectedRouteName,
   onOpenRoutePicker,
   onClearSelectedRoute,
+  driveLink,
 }) {
   return (
     <RouteMap
@@ -43,6 +44,7 @@ function RecordingMap({
       onOpenRoutePicker={onOpenRoutePicker}
       onClearSelectedRoute={onClearSelectedRoute}
       onRefreshCurrentLocation={onRefreshCurrentLocation}
+      driveLink={driveLink}
     />
   )
 }

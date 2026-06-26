@@ -190,6 +190,7 @@ function normalizeRoute(id, raw) {
     owner: raw.owner ?? null,
     city: raw.city || '',
     name: raw.name || '',
+    link: raw.link || '',
     points: Array.isArray(raw.points) ? raw.points : [],
     createdAt: raw.createdAt || null,
   }
@@ -484,6 +485,7 @@ export async function saveRoute(route) {
     owner: route.owner ?? currentUid(),
     city: route.city?.trim() || '',
     name: route.name?.trim() || '',
+    link: route.link?.trim() || '',
     points: Array.isArray(route.points) ? route.points : [],
     createdAt: route.createdAt || new Date().toISOString(),
   }

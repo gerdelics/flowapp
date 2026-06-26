@@ -28,6 +28,7 @@ export default function RoutesPage() {
 
   const [city, setCity] = useState('')
   const [name, setName] = useState('')
+  const [link, setLink] = useState('')
   const [gpxFile, setGpxFile] = useState(null)
   const [gpxError, setGpxError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -36,6 +37,7 @@ export default function RoutesPage() {
   const [editingRouteId, setEditingRouteId] = useState(null)
   const [editCity, setEditCity] = useState('')
   const [editName, setEditName] = useState('')
+  const [editLink, setEditLink] = useState('')
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState('')
 
@@ -123,6 +125,7 @@ export default function RoutesPage() {
         id: uuidv4(),
         city: city.trim(),
         name: name.trim(),
+        link: link.trim(),
         points,
         createdAt: new Date().toISOString(),
       }
@@ -131,6 +134,7 @@ export default function RoutesPage() {
       setLastRouteCity(route.city)
       setCity('')
       setName('')
+      setLink('')
       setGpxFile(null)
       setGpxError('')
       setAddModalOpen(false)
@@ -148,6 +152,7 @@ export default function RoutesPage() {
   function openAddModal() {
     setCity(lastRouteCity && cityOptions.includes(lastRouteCity) ? lastRouteCity : '')
     setName('')
+    setLink('')
     setGpxError('')
     setAddModalOpen(true)
   }
@@ -168,6 +173,7 @@ export default function RoutesPage() {
     setEditingRouteId(route.id)
     setEditCity(route.city || '')
     setEditName(route.name || '')
+    setEditLink(route.link || '')
     setEditError('')
   }
 
@@ -175,6 +181,7 @@ export default function RoutesPage() {
     setEditingRouteId(null)
     setEditCity('')
     setEditName('')
+    setEditLink('')
     setEditError('')
   }
 
@@ -196,6 +203,7 @@ export default function RoutesPage() {
         ...existing,
         city: editCity.trim(),
         name: editName.trim(),
+        link: editLink.trim(),
       }
 
       await saveRoute(updated)
@@ -335,6 +343,8 @@ export default function RoutesPage() {
             cities={cityOptions}
             name={name}
             onNameChange={setName}
+            link={link}
+            onLinkChange={setLink}
             required
           />
 
@@ -369,6 +379,8 @@ export default function RoutesPage() {
           setEditCity={setEditCity}
           editName={editName}
           setEditName={setEditName}
+          editLink={editLink}
+          setEditLink={setEditLink}
           editError={editError}
           editSaving={editSaving}
           cities={cityOptions}

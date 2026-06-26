@@ -5,6 +5,8 @@ export default function RouteIdentityFields({
   name,
   onNameChange,
   namePlaceholder = 'e.g. Downtown loop',
+  link = '',
+  onLinkChange,
   required = false,
 }) {
   return (
@@ -45,6 +47,25 @@ export default function RouteIdentityFields({
           required={required}
         />
       </div>
+
+      {onLinkChange ? (
+        <div>
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+            Google Maps link <span className="font-normal normal-case text-slate-500">(optional)</span>
+          </label>
+          <input
+            type="url"
+            value={link}
+            onChange={(event) => onLinkChange(event.target.value)}
+            placeholder="https://www.google.com/maps/dir/..."
+            inputMode="url"
+            className="w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
+          />
+          <p className="mt-1 text-xs text-slate-500">
+            A Google Maps directions link (with multiple stops) used for “Drive with Google”.
+          </p>
+        </div>
+      ) : null}
     </>
   )
 }
