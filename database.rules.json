@@ -1,0 +1,30 @@
+{
+  "rules": {
+    "sessions": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["startTime", "owner"]
+    },
+    "entries": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["sessionId", "timestamp", "owner"]
+    },
+    "routes": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["city", "createdAt"]
+    },
+    "cities": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["name"]
+    },
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    }
+  }
+}

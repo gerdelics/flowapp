@@ -1,6 +1,7 @@
 export { default as AppLayout } from './AppLayout'
 export { default as SessionBar } from './SessionBar'
 export { default as BaseModal } from './BaseModal'
+export { default as CitiesManagerModal } from './CitiesManagerModal'
 export { default as ConfirmDialog } from './ConfirmDialog'
 export { default as CrashRecoveryModal } from './CrashRecoveryModal'
 export { default as OverlayModal } from './OverlayModal'

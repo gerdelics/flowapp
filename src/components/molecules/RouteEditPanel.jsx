@@ -5,8 +5,11 @@ export default function RouteEditPanel({
   setEditCity,
   editName,
   setEditName,
+  editLink,
+  setEditLink,
   editError,
   editSaving,
+  cities = [],
   onSave,
   onCancel,
   onDelete,
@@ -17,9 +20,12 @@ export default function RouteEditPanel({
         city={editCity}
         onCityChange={setEditCity}
         cityPlaceholder="City"
+        cities={cities}
         name={editName}
         onNameChange={setEditName}
         namePlaceholder="Route name"
+        link={editLink}
+        onLinkChange={setEditLink}
       />
       {editError ? <p className="text-xs text-red-400">{editError}</p> : null}
       <div className="flex gap-2">

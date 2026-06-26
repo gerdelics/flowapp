@@ -9,22 +9,32 @@ function RouteListCard({
   onDelete,
   lengthKm,
   routePathColor,
+  compact = false,
 }) {
   return (
     <div
-      className={`w-full rounded-xl border p-3 text-left transition ${
+      className={`w-full rounded-lg border text-left transition ${compact ? 'p-2' : 'rounded-xl p-3'} ${
         isSelected
           ? 'border-orange-500 bg-slate-800 ring-2 ring-orange-500/50'
           : 'border-slate-700 bg-slate-900 hover:border-slate-500'
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className={`flex items-center justify-between gap-3 ${compact ? '' : 'items-start'}`}>
         <button type="button" onClick={onClick} className="min-w-0 flex-1 text-left">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-            {route.city}
-          </p>
-          <p className="mt-1 text-sm font-bold text-slate-100 sm:text-base">{route.name}</p>
-          <p className="mt-1 text-xs text-slate-500">{lengthKm.toFixed(2)} km</p>
+          {compact ? (
+            <p className="truncate text-sm font-semibold text-slate-100">
+              {route.name}
+              <span className="ml-2 text-xs font-normal text-slate-500">{lengthKm.toFixed(2)} km</span>
+            </p>
+          ) : (
+            <>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                {route.city}
+              </p>
+              <p className="mt-1 text-sm font-bold text-slate-100 sm:text-base">{route.name}</p>
+              <p className="mt-1 text-xs text-slate-500">{lengthKm.toFixed(2)} km</p>
+            </>
+          )}
         </button>
 
         <div className="flex shrink-0 items-start gap-2">

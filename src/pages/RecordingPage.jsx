@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useBatteryStatus } from '../hooks/useBatteryStatus'
 import { useGeolocation } from '../hooks/useGeolocation'
+import { useCities, mergeCities } from '../hooks/useCities'
 import { useGpsHealth } from '../hooks/useGpsHealth'
+import { useLastCity } from '../hooks/useLastCity'
+import { useMapZoom } from '../hooks/useMapZoom'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import { useRecordingSession } from '../hooks/useRecordingSession'
 import { useSavedRoutes } from '../hooks/useSavedRoutes'
@@ -46,7 +49,10 @@ const CONFIRM_CONFIG = {
 }
 
 export default function RecordingPage({ isActive = true }) {
-  const { settings, loading, reload, setMapZoomLevel } = useSettings()
+  const { settings, loading, reload } = useSettings()
+  const { cities: managedCities } = useCities()
+  const { zoom: mapZoomLevel, setZoom: setMapZoomLevel } = useMapZoom()
+  const { city: sessionCityDraft, setCity: setSessionCityDraft } = useLastCity()
   const geolocation = useGeolocation()
   const {
     routes: savedRoutes,
@@ -81,7 +87,6 @@ export default function RecordingPage({ isActive = true }) {
 
   const recordedPathColor = settings?.recordedPathColor ?? '#e002c3'
   const plannedRoutePathColor = settings?.plannedRoutePathColor ?? '#ebfc01'
-  const mapZoomLevel = settings?.mapZoomLevel ?? 14
 
   const activeProviders = useMemo(
     () => settings?.providers?.filter((provider) => provider.active) || [],
@@ -197,10 +202,13 @@ export default function RecordingPage({ isActive = true }) {
     [filterByCity, routeCityFilter],
   )
 
-  const selectedOverlayRouteName = useMemo(() => {
-    if (!selectedOverlayRouteId) return ''
-    return savedRoutes.find((route) => route.id === selectedOverlayRouteId)?.name || ''
+  const selectedOverlayRoute = useMemo(() => {
+    if (!selectedOverlayRouteId) return null
+    return savedRoutes.find((route) => route.id === selectedOverlayRouteId) || null
   }, [savedRoutes, selectedOverlayRouteId])
+
+  const selectedOverlayRouteName = selectedOverlayRoute?.name || ''
+  const selectedOverlayRouteLink = selectedOverlayRoute?.link || ''
 
   const handleMapZoomChange = useCallback(
     (nextZoom) => {
@@ -244,11 +252,11 @@ export default function RecordingPage({ isActive = true }) {
   }
 
   async function handleStartSession() {
-    if (startingSession || session.session) return
+    if (startingSession || session.session || !sessionCityDraft) return
 
     setStartingSession(true)
     try {
-      const createdSession = await session.beginSession(sessionNameDraft)
+      const createdSession = await session.beginSession(sessionNameDraft, sessionCityDraft)
       if (selectedOverlayRouteId && createdSession?.id) {
         await session.assignRouteToActiveSession(selectedOverlayRouteId, createdSession.id)
       }
@@ -294,7 +302,7 @@ export default function RecordingPage({ isActive = true }) {
   // Start/Pause/Resume/Stop are gated behind a mandatory confirmation. The
   // request* handlers only open the dialog; the real mutation runs on confirm.
   function requestStart() {
-    if (session.session) return
+    if (session.session || !sessionCityDraft) return
     setPendingConfirm({ kind: 'start' })
   }
 
@@ -378,15 +386,23 @@ export default function RecordingPage({ isActive = true }) {
     selectedRouteName: selectedOverlayRouteName,
     onOpenRoutePicker: () => setRoutePickerOpen(true),
     onClearSelectedRoute: handleClearOverlayRoute,
+    driveLink: selectedOverlayRouteLink,
   }
+
+  const startDisabled = startingSession || !sessionCityDraft
 
   const sessionBarProps = {
     sessionActive,
     sessionPaused,
     sessionName: session.session ? session.session.name : '',
+    sessionCity: session.session ? session.session.city : '',
     sessionNameDraft,
     onNameDraftChange: setSessionNameDraft,
+    cityDraft: sessionCityDraft,
+    onCityDraftChange: setSessionCityDraft,
+    cities: mergeCities(managedCities, routeCities),
     startingSession,
+    startDisabled,
     onStart: requestStart,
     stoppingSession,
     onStop: requestStop,
@@ -489,7 +505,11 @@ export default function RecordingPage({ isActive = true }) {
               }`}
             >
               {!sessionActive
-                ? startingSession ? 'Starting…' : 'START SESSION'
+                ? startingSession
+                  ? 'Starting…'
+                  : !sessionCityDraft
+                    ? 'SELECT A CITY'
+                    : 'START SESSION'
                 : sessionPaused
                   ? 'SESSION PAUSED'
                   : nextRecordingIn > 0
@@ -514,7 +534,7 @@ export default function RecordingPage({ isActive = true }) {
           <button
             type="button"
             onClick={!sessionActive ? requestStart : recordNow}
-            disabled={!sessionActive ? startingSession : recordDisabled}
+            disabled={!sessionActive ? startDisabled : recordDisabled}
             className={`shrink-0 w-full rounded-xl py-3 text-base font-bold transition disabled:opacity-50 ${
               !sessionActive
                 ? 'bg-emerald-600 text-white'

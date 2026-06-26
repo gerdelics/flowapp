@@ -4,7 +4,6 @@ import {
   deleteSession,
   getActiveSession,
   getEntriesBySessionId,
-  listSessionsWithCounts,
   pauseSession,
   renameSession,
   resumeSession,
@@ -12,6 +11,7 @@ import {
   setSessionPath,
   startSession,
   stopSession,
+  subscribeSessionsWithCounts,
 } from '../db'
 
 const EMPTY_LEVEL = 'medium'
@@ -24,24 +24,28 @@ export function useSession(activeProviders) {
   const [sessions, setSessions] = useState([])
   const [recoveryPending, setRecoveryPending] = useState(false)
   const [recoveredMeta, setRecoveredMeta] = useState(null)
+
   const refreshActiveSession = useCallback(async () => {
     const active = await getActiveSession()
     setSession(active)
   }, [])
 
-  const refreshSessions = useCallback(async () => {
-    const list = await listSessionsWithCounts()
-    setSessions(list)
+  // The sessions list is a live Firebase subscription (shared team pool), so it
+  // updates across devices without manual refreshes.
+  useEffect(() => {
+    const unsubscribe = subscribeSessionsWithCounts(setSessions)
+    return unsubscribe
   }, [])
+
+  // refreshSessions is retained for API compatibility; the subscription above
+  // keeps the list current, so this is a no-op.
+  const refreshSessions = useCallback(async () => {}, [])
 
   useEffect(() => {
     let mounted = true
 
     async function loadInitial() {
-      const [active, sessionList] = await Promise.all([
-        getActiveSession(),
-        listSessionsWithCounts(),
-      ])
+      const active = await getActiveSession()
 
       if (!mounted) {
         return
@@ -52,12 +56,11 @@ export function useSession(activeProviders) {
       // hook). Pause it so the sampler records no bad points and prompt the user
       // to resume, finish, or discard.
       if (active) {
-        const paused = (await pauseSession(active.id)) || active
+        const paused = pauseSession(active.id, active) || active
         if (!mounted) {
           return
         }
         setSession(paused)
-        setSessions(sessionList)
         setRecoveredMeta({
           name: active.name,
           lastHeartbeatAt: active.lastHeartbeatAt || null,
@@ -68,7 +71,6 @@ export function useSession(activeProviders) {
       }
 
       setSession(active)
-      setSessions(sessionList)
     }
 
     loadInitial()
@@ -78,25 +80,20 @@ export function useSession(activeProviders) {
     }
   }, [])
 
-  const beginSession = useCallback(
-    async (name) => {
-      const created = await startSession(name)
-      setSession(created)
-      await refreshSessions()
-      return created
-    },
-    [refreshSessions],
-  )
+  const beginSession = useCallback(async (name, city) => {
+    const created = await startSession(name, city)
+    setSession(created)
+    return created
+  }, [])
 
   const endSession = useCallback(async () => {
     if (!session) {
       return null
     }
-    const stopped = await stopSession(session.id)
+    const stopped = stopSession(session.id, session)
     setSession(null)
-    await refreshSessions()
     return stopped
-  }, [refreshSessions, session])
+  }, [session])
 
   const saveActiveSessionPath = useCallback(
     async (path) => {
@@ -104,12 +101,8 @@ export function useSession(activeProviders) {
         return null
       }
 
-      // Persist only. This runs on a 10s autosave loop while recording;
-      // calling setSession (re-triggering downstream effects) and
-      // refreshSessions (a full sessions+entries read) every 10s was a steady
-      // battery drain. The sessions list is refreshed on session end and on
-      // navigation instead, and the live map is driven by the in-memory path
-      // buffer rather than session.path.
+      // Persist only. This runs on a 10s autosave loop while recording; the live
+      // map is driven by the in-memory path buffer rather than session.path.
       return setSessionPath(session.id, path)
     },
     [session],
@@ -121,14 +114,13 @@ export function useSession(activeProviders) {
         return null
       }
 
-      const renamed = await renameSession(session.id, name)
+      const renamed = renameSession(session.id, name, session)
       if (renamed) {
         setSession(renamed)
-        await refreshSessions()
       }
       return renamed
     },
-    [refreshSessions, session],
+    [session],
   )
 
   const assignRouteToActiveSession = useCallback(
@@ -138,20 +130,19 @@ export function useSession(activeProviders) {
         return null
       }
 
-      const updated = await setSessionPlannedRoute(resolvedSessionId, routeId)
+      const current = resolvedSessionId === session?.id ? session : null
+      const updated = await setSessionPlannedRoute(resolvedSessionId, routeId, current)
       if (updated) {
-        setSession((current) => {
-          if (!current) {
-            return updated
+        setSession((existing) => {
+          if (!existing) {
+            return existing
           }
-
-          return current.id === updated.id ? updated : current
+          return existing.id === updated.id ? updated : existing
         })
-        await refreshSessions()
       }
       return updated
     },
-    [refreshSessions, session?.id],
+    [session],
   )
 
   const pauseActiveSession = useCallback(async () => {
@@ -159,26 +150,24 @@ export function useSession(activeProviders) {
       return null
     }
 
-    const paused = await pauseSession(session.id)
+    const paused = pauseSession(session.id, session)
     if (paused) {
       setSession(paused)
-      await refreshSessions()
     }
     return paused
-  }, [refreshSessions, session])
+  }, [session])
 
   const resumeActiveSession = useCallback(async () => {
     if (!session) {
       return null
     }
 
-    const resumed = await resumeSession(session.id)
+    const resumed = resumeSession(session.id, session)
     if (resumed) {
       setSession(resumed)
-      await refreshSessions()
     }
     return resumed
-  }, [refreshSessions, session])
+  }, [session])
 
   const updateProviderLevel = useCallback((providerName, level) => {
     setProviderLevels((prev) => ({ ...prev, [providerName]: level }))
@@ -195,7 +184,7 @@ export function useSession(activeProviders) {
         level: providerLevels[provider.name] || EMPTY_LEVEL,
       }))
 
-      const saved = await addEntry({
+      const saved = addEntry({
         sessionId: session.id,
         location: location || null,
         providers,
@@ -203,10 +192,9 @@ export function useSession(activeProviders) {
       })
 
       setLastRecordedAt(saved.timestamp)
-      await refreshSessions()
       return saved
     },
-    [activeProviders, observerAssessment, providerLevels, refreshSessions, session],
+    [activeProviders, observerAssessment, providerLevels, session],
   )
 
   const getCurrentSessionEntries = useCallback(async () => {
@@ -232,11 +220,10 @@ export function useSession(activeProviders) {
     if (session) {
       await deleteSession(session.id)
       setSession(null)
-      await refreshSessions()
     }
     setRecoveryPending(false)
     setRecoveredMeta(null)
-  }, [refreshSessions, session])
+  }, [session])
 
   return {
     session,
