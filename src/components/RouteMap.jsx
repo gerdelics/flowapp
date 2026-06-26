@@ -464,7 +464,7 @@ function RouteMap({
       <div key={mapMountKey} ref={containerRef} className={mapClassName} />
 
       {showMapControls ? (
-        <div className="absolute right-3 top-3 z-[1000]">
+        <div className="absolute right-3 top-3 z-[1000] flex flex-col items-end gap-1.5">
           <div className="flex flex-row items-center gap-1.5">
             {showFullscreenControl ? (
               <button
@@ -536,21 +536,6 @@ function RouteMap({
               </button>
             ) : null}
 
-            {hasDriveLink ? (
-              <button
-                type="button"
-                onClick={handleDriveWithGoogle}
-                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-500 px-3 text-white shadow-md backdrop-blur-sm transition hover:bg-emerald-400"
-                title="Drive with Google – open navigation"
-                aria-label="Drive with Google"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0">
-                  <polygon points="3 11 22 2 13 21 11 13 3 11" />
-                </svg>
-                <span className="text-xs font-semibold">Drive</span>
-              </button>
-            ) : null}
-
             {showRouteControl ? (
               <>
                 <button
@@ -595,6 +580,21 @@ function RouteMap({
               </>
             ) : null}
           </div>
+
+          {hasDriveLink ? (
+            <button
+              type="button"
+              onClick={handleDriveWithGoogle}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-500 px-3 text-white shadow-md backdrop-blur-sm transition hover:bg-emerald-400"
+              title="Drive with Google – open navigation"
+              aria-label="Drive with Google"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0">
+                <polygon points="3 11 22 2 13 21 11 13 3 11" />
+              </svg>
+              <span className="text-xs font-semibold">Drive</span>
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>
